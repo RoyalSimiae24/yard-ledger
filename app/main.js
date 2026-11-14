@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, shell, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const rawfs = require("original-fs"); // plain file access: Electron treats anything ending in .asar as an archive
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
@@ -226,11 +227,11 @@ app.whenReady().then(() => {
       const buf = await fetchBuf("app.asar", 90000);
       if (buf.length < 1000 || buf.length > 300 * 1024 * 1024) return { error: "The update file looks wrong. Try again later." };
       if (crypto.createHash("sha256").update(buf).digest("hex") !== m.sha256) return { error: "The update is still uploading. Try again in a few minutes." };
-      const resDir = process.resourcesPath, asar = path.join(resDir, "app.asar"), staged = path.join(resDir, "app.update.asar");
+      const resDir = process.resourcesPath, asar = path.join(resDir, "app.asar"), staged = path.join(resDir, "app.update.tmp");
       const exe = process.execPath;
       if (![asar, staged, exe].every((p) => !/["%]/.test(p))) return { error: "This install folder name has a special character that blocks updating." };
-      fs.writeFileSync(staged, buf);
-      try { fs.copyFileSync(asar, path.join(resDir, "app.previous.asar")); } catch (e) { /* backup is best effort */ }
+      rawfs.writeFileSync(staged, buf);
+      try { rawfs.copyFileSync(asar, path.join(resDir, "app.previous.bak")); } catch (e) { /* backup is best effort */ }
       const bat = path.join(app.getPath("userData"), "apply-update.bat");
       fs.writeFileSync(bat, [
         "@echo off", "set n=0", "ping -n 3 127.0.0.1 >nul", ":retry",
@@ -241,7 +242,7 @@ app.whenReady().then(() => {
       setTimeout(() => app.quit(), 250);
       return { ok: true };
     } catch (e) {
-      return { error: "Could not download the update. Check the internet connection and try again." };
+      return { error: "Could not install the update (" + String((e && (e.code || e.message)) || "unknown").slice(0, 60) + "). Try again, and tell Manny if it keeps happening." };
     }
   });
 
