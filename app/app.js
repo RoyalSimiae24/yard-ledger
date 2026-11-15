@@ -446,7 +446,7 @@
   function collectItems() {
     return $$("#jf-items .item-row").map(function (r) {
       return { name: $(".it-name", r).value.trim(), qty: num($(".it-qty", r).value, 0), rate: num($(".it-rate", r).value, 0), unit: r.dataset.unit || "", serviceId: r.dataset.sid || "", detail: $(".it-detail", r).value.trim(), kind: $(".it-kind", r).value, materialId: r.dataset.mid || "", cost: r.dataset.cost === "" || r.dataset.cost === undefined ? "" : num(r.dataset.cost, 0) };
-    }).filter(function (i) { return i.name || i.qty || i.rate; }).map(function (i) { if (!i.name) i.name = "Item"; return i; });
+    }).filter(function (i) { return i.name || i.qty || i.rate; }).map(function (i) { if (!i.name) i.name = i.kind === "material" ? "Materials" : "Labor"; return i; });
   }
   function billPatch(j, v) {
     var p = { billStatus: v };
@@ -878,16 +878,18 @@
   }
   function invById(id) { return data.invoices.filter(function (i) { return i.id === id; })[0]; }
   function invoiceDate(j) { return j.completedDate || (j.jobStatus === "done" ? (j.scheduled || today()) : ""); }
-  function draftFor(j, kind) {
+  function draftFor(j, kind, style) {
+    style = style || j.billStyle;
     kind = kind === "estimate" ? "estimate" : "invoice";
     var c = clientById(j.clientId) || {}, est = kind === "estimate", date = est ? today() : invoiceDate(j);
     var items = hasItems(j) ? j.items : [{ name: j.description || "Job", qty: 1, rate: Number(j.amount) || 0, unit: "flat" }];
     var lines = [];
     items.forEach(function (i) {
       var q = Number(i.qty) || 0, r = Number(i.rate) || 0;
-      var ln = { date: est ? "" : date, name: i.name, detail: i.detail || "", qty: q, unit: i.unit || "", rate: r, amount: r2(q * r), kind: i.kind || "service" };
+      var ln = { date: est ? "" : date, name: (!i.name || i.name === "Item") ? (i.kind === "material" ? "Materials" : "Labor") : i.name, detail: i.detail || "", qty: q, unit: i.unit || "", rate: r, amount: r2(q * r), kind: i.kind || "service" };
+      ln.anchor = ln.kind === "material" || (ln.kind === "service" && !i.serviceId && i.unit !== "hour");
       var prev = lines[lines.length - 1];
-      if (j.billStyle === "combined" && ln.kind !== "material" && prev && prev.kind === "material") {
+      if (style === "combined" && prev && prev.anchor && !(ln.kind === "material" || (ln.kind === "service" && !i.serviceId && i.unit !== "hour"))) {
         prev.amount = r2(prev.amount + ln.amount); prev.combined = true;
         prev.detail = [prev.detail, [ln.name, ln.detail].filter(Boolean).join(" - ")].filter(Boolean).join("; ");
       } else lines.push(ln);
@@ -941,7 +943,7 @@
     var layer = $("#invoiceLayer"), s = ui.invoice, inv = null, draft = false;
     if (s && s.list) { renderPriceList(); return; }
     if (s && s.invId) inv = invById(s.invId);
-    else if (s && s.jobId) { var jj = jobById(s.jobId); if (jj) { inv = draftFor(jj, s.kind); draft = true; } }
+    else if (s && s.jobId) { var jj = jobById(s.jobId); if (jj) { inv = draftFor(jj, s.kind, s.style); draft = true; } }
     if (!inv) { ui.invoice = null; layer.hidden = true; layer.innerHTML = ""; return; }
     var est = isEst(inv), kindWord = est ? "estimate" : "invoice";
     var b = inv.billTo || {}, bal = r2(inv.total - (inv.paid || 0));
@@ -953,6 +955,9 @@
     var noteText = est ? String(sv("estimateNote")).trim() : String(st("invoiceNote") || "").trim();
     var jobId = inv.jobId, jobOk = !!(jobId && jobById(jobId));
     var seg = jobOk ? '<span class="seg"><button type="button" data-act="setKind" data-kind="invoice" aria-pressed="' + (!est) + '">Invoice</button><button type="button" data-act="setKind" data-kind="estimate" aria-pressed="' + est + '">Estimate</button></span>' : "";
+    var hasMat = jobOk && (jobById(jobId).items || []).some(function (i) { return i.kind === "material" || i.kind === "hourly"; });
+    var stl = s.style || (jobOk && jobById(jobId).billStyle) || "separate";
+    if (draft && hasMat) seg += '<span class="seg"><button type="button" data-act="setStyle" data-style="separate" aria-pressed="' + (stl !== "combined") + '">Separate</button><button type="button" data-act="setStyle" data-style="combined" aria-pressed="' + (stl === "combined") + '">Combined</button></span>';
     var msg = s.msg ? s.msg : (draft ? (inv.date && (est || inv.date) ? "Preview. Issuing gives it " + kindWord + " No. " + dispNo({ no: nextNo(kindOf(inv)), kind: inv.kind }) + " and saves a copy." : "Mark the job done first so the invoice can be dated.") : "");
     var canIssue = !!inv.date;
     var bar = '<div class="inv-bar no-print"><span class="inv-msg">' + esc(msg) + '</span>' + seg +
@@ -991,7 +996,7 @@
     var s = ui.invoice, j = s && s.jobId && jobById(s.jobId); if (!j) return;
     var kind = s.kind === "estimate" ? "estimate" : "invoice";
     if (savedFor(j, kind)) return;
-    var d = draftFor(j, kind); if (!d.date) return;
+    var d = draftFor(j, kind, ui.invoice && ui.invoice.style); if (!d.date) return;
     if (kind === "invoice") {
       if (j.billStatus === "unbilled") Object.assign(j, billPatch(j, "invoiced"), { updatedAt: Date.now() });
       d.dueDate = j.dueDate || d.dueDate;
@@ -1165,6 +1170,7 @@
       case "toggleCodes": if (ui.invoice) { ui.invoice.codes = ui.invoice.codes === false; renderInvoice(); } break;
       case "issueInvoice": issueInvoice(); break;
       case "setKind": { var sj = ui.invoice && (ui.invoice.jobId || (ui.invoice.invId && invById(ui.invoice.invId) && invById(ui.invoice.invId).jobId)); if (sj) openFor(sj, t.dataset.kind === "estimate" ? "estimate" : "invoice"); break; }
+      case "setStyle": if (ui.invoice && ui.invoice.jobId) { ui.invoice.style = t.dataset.style === "combined" ? "combined" : "separate"; renderInvoice(); } break;
       case "toggleAccepted": toggleAccepted(); break;
       case "voidInv": voidInvoice(); break;
       case "printInvoice": window.ledger.printInvoice().catch(function () {}); break;

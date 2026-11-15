@@ -1,1 +1,1 @@
-{"version": "2.6.0", "sha256": "ca9238ec7f949e2ff08e8deff24d2a06eef32c702b848161e526a95651ebfd99", "notes": "New Materials tab, material and hourly labor lines on jobs, and combined or separate bills."}
+{"version": "2.6.1", "sha256": "65fe4b6e325191385858a1cfb895772f059303aa4c359d6c7a15ebb0052acd71", "notes": "Combine or separate switch right on the bill, and no more 'Item' labels."}
