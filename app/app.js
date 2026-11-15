@@ -11,8 +11,8 @@
   var JOB_TONE = { todo: "muted", scheduled: "info", progress: "warn", done: "good" };
   var BILL_TONE = { unbilled: "muted", invoiced: "info", partial: "warn", paid: "good" };
   var FILTERS = [["all", "All"], ["todo", "To do"], ["tobill", "Needs a bill"], ["unpaid", "Unpaid"], ["overdue", "Overdue"], ["done", "Done and paid"]];
-  var TABS = [["overview", "Overview"], ["jobs", "Jobs"], ["clients", "Clients"], ["invoices", "Invoices"], ["services", "Services"], ["settings", "Settings"]];
-  var DEFAULTS = { businessName: "Lima's Landscaping", businessAddress: "1870 W Apricot Ln\nLincoln, NE 68522", businessPhone: "402-217-5496\n402-217-5497", businessWebsite: "www.limaslandscaping.com", businessSocial: "LIMAS LANDSCAPING", invoiceNote: "Thank you for your business!", nextInvoiceNo: 1001, logoData: "", dueDays: 14, warnAfterDays: 20, notify: true, lastNotified: "" };
+  var TABS = [["overview", "Overview"], ["jobs", "Jobs"], ["clients", "Clients"], ["invoices", "Bills"], ["services", "Services"], ["settings", "Settings"]];
+  var DEFAULTS = { businessName: "Lima's Landscaping", businessAddress: "1870 W Apricot Ln\nLincoln, NE 68522", businessPhone: "402-217-5496\n402-217-5497", businessWebsite: "www.limaslandscaping.com", businessSocial: "LIMAS LANDSCAPING", invoiceNote: "Thank you for your business!", nextInvoiceNo: 1001, nextEstimateNo: 1001, estimateDays: 30, estimateNote: "This is an estimate, not a bill. The final price may change if the work changes.", logoData: "", dueDays: 14, warnAfterDays: 20, notify: true, lastNotified: "" };
   var LATE_DAYS = 30;
 
   /* ---------- helpers ---------- */
@@ -46,7 +46,7 @@
   var ready = false;
   var appVersion = "";
   var PAGE = 60;
-  var ui = { tab: "overview", jobFilter: "all", jobType: "all", sort: "newest", jq: "", cFilter: "all", cq: "", form: null, confirm: null, batch: false, invoice: null, iq: "", invLimit: PAGE, jobLimit: PAGE, clientLimit: PAGE };
+  var ui = { tab: "overview", jobFilter: "all", jobType: "all", sort: "newest", jq: "", cFilter: "all", cq: "", form: null, confirm: null, batch: false, invoice: null, iq: "", ik: "", invLimit: PAGE, jobLimit: PAGE, clientLimit: PAGE };
 
   function st(k) { return data.settings[k] === undefined ? DEFAULTS[k] : data.settings[k]; }
   var clientIndex = {};
@@ -198,7 +198,7 @@
     else h += waiting.map(function (w) {
       var l = ageLabel(w.age);
       return miniRow(w.job, "<strong>" + money(jobTotal(w.job)) + '</strong><span class="pill ' + l[1] + '">' + esc(l[0]) + "</span>",
-        '<button type="button" class="btn small" data-act="invoice">View invoice</button><button type="button" class="btn small primary" data-act="billed">Mark billed</button>');
+        '<button type="button" class="btn small" data-act="invoice">Bill</button><button type="button" class="btn small primary" data-act="billed">Mark billed</button>');
     }).join("");
     h += "</section>";
 
@@ -219,7 +219,7 @@
     if (!late.length) h += '<p class="empty-note">No payments are past due.</p>';
     else h += late.map(function (j) {
       return miniRow(j, "<strong>" + money(balance(j)) + '</strong><span class="pill bad">Due ' + esc(fmtDate(j.dueDate)) + "</span>",
-        '<button type="button" class="btn small" data-act="invoice">View invoice</button><button type="button" class="btn small primary" data-act="paid">Mark paid</button>');
+        '<button type="button" class="btn small" data-act="invoice">Bill</button><button type="button" class="btn small primary" data-act="paid">Mark paid</button>');
     }).join("");
     h += "</section>";
     if (!data.jobs.length) h = '<div class="empty"><h2>Welcome to Yard Ledger</h2><p>Start on the Services tab with your prices, add your clients, then create jobs. Finished jobs that are not billed show up here before they get a month late.</p><button type="button" class="btn primary" data-tab="services">Set up services</button></div>';
@@ -294,7 +294,7 @@
       '<div class="controls stack"><div class="ctl-row"><label>Job<select data-field="jobStatus" aria-label="Job status for ' + esc(cname(j)) + '">' + opts(JOB, j.jobStatus) + "</select></label>" +
       '<label>Payment<select data-field="billStatus" aria-label="Payment status for ' + esc(cname(j)) + '">' + opts(BILL, j.billStatus) + "</select></label>" +
       (na ? '<button type="button" class="btn primary" data-act="' + na.act + '">' + na.text + "</button>" : "") + "</div>" +
-      '<div class="ctl-row end"><button type="button" class="btn small" data-act="invoice">Invoice</button>' +
+      '<div class="ctl-row end"><button type="button" class="btn small" data-act="invoice">Bill</button>' +
       '<button type="button" class="btn small" data-act="repeat">Repeat</button>' +
       '<button type="button" class="btn small" data-act="editJob">Edit</button>' + del + "</div></div></article>";
   }
@@ -466,7 +466,7 @@
       (contact ? '<p class="sub">' + esc(contact) + "</p>" : "") + (c.address ? '<p class="sub">' + esc(c.address) + "</p>" : "") +
       '</div><div class="amt"><strong>' + (num(c.yardage, 0) ? esc(qtyFmt(num(c.yardage, 0))) + " yd" : "No yardage") + "</strong><span>" + (owed ? "Owes " + money(owed) : plural(jobs.length, "job", "jobs")) + "</span></div></div>" +
       (lists ? '<div class="meta">' + lists + "</div>" : "") + (c.notes ? '<p class="notes">' + esc(c.notes) + "</p>" : "") +
-      '<div class="controls"><span class="spacer"></span>' + (invN ? '<button type="button" class="btn small" data-act="clientInv">Invoices (' + invN + ")</button>" : "") + '<button type="button" class="btn small primary" data-act="jobFor">New job</button>' +
+      '<div class="controls"><span class="spacer"></span>' + (invN ? '<button type="button" class="btn small" data-act="clientInv">Bills (' + invN + ")</button>" : "") + '<button type="button" class="btn small primary" data-act="jobFor">New job</button>' +
       '<button type="button" class="btn small" data-act="editClient">Edit</button>' + del + "</div></article>";
   }
   function vClients(v) {
@@ -606,7 +606,10 @@
       '<label>Address (one line per row)<textarea rows="2" data-setting="businessAddress" maxlength="200">' + esc(sv("businessAddress")) + '</textarea></label>' +
       '<label>Phone numbers (one per row)<textarea rows="2" data-setting="businessPhone" maxlength="120">' + esc(sv("businessPhone")) + '</textarea></label>' +
       '<label>Message at the bottom of invoices<textarea rows="2" data-setting="invoiceNote" maxlength="300">' + esc(st("invoiceNote")) + '</textarea></label>' +
-      '<label>Next invoice number<input type="number" data-setting="nextInvoiceNo" min="1" step="1" value="' + esc(nextNo()) + '"></label>' +
+      '<label>Next invoice number<input type="number" data-setting="nextInvoiceNo" min="1" step="1" value="' + esc(nextNo("invoice")) + '"></label>' +
+      '<label>Next estimate number<input type="number" data-setting="nextEstimateNo" min="1" step="1" value="' + esc(nextNo("estimate")) + '"></label>' +
+      '<label>Estimates are valid for (days)<input type="number" data-setting="estimateDays" min="1" step="1" value="' + esc(st("estimateDays")) + '"></label>' +
+      '<label>Message on estimates<textarea rows="2" data-setting="estimateNote" maxlength="300">' + esc(sv("estimateNote")) + '</textarea></label>' +
       '<label>Payment due after (days)<input type="number" data-setting="dueDays" min="0" step="1" value="' + esc(st("dueDays")) + '"></label>' +
       '<label>Invoice logo (PNG or JPG)<input type="file" id="logoFile" accept="image/png,image/jpeg"></label></div>' +
       '<div class="actions"><button type="button" class="btn" data-act="resetLogo">Use the Lima\'s logo</button></div>' +
@@ -625,7 +628,7 @@
     window.ledger.getLogin().then(function (on) { var b = $("#loginBox"); if (b) b.checked = !!on; }).catch(function () {});
   }
 
-  /* ---------- Invoice ---------- */
+  /* ---------- Invoice and estimate ---------- */
   function sv(k) { var v = st(k); return (v === undefined || v === null || String(v).trim() === "") ? DEFAULTS[k] : v; }
   function textLines(s) { return String(s || "").split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean); }
   function addrLines(a) {
@@ -633,29 +636,45 @@
     if (l.length === 1) { var i = l[0].indexOf(", "); if (i > 0) l = [l[0].slice(0, i), l[0].slice(i + 2)]; }
     return l;
   }
-  function maxNo() { return data.invoices.reduce(function (m, i) { return Math.max(m, Number(i.no) || 0); }, 0); }
-  function nextNo() { return Math.max(Math.floor(num(st("nextInvoiceNo"), 1001)), maxNo() + 1); }
+  function kindOf(i) { return i && i.kind === "estimate" ? "estimate" : "invoice"; }
+  function isEst(i) { return kindOf(i) === "estimate"; }
+  function dispNo(i) { return (isEst(i) ? "E-" : "") + i.no; }
+  function maxNo(kind) { return data.invoices.reduce(function (m, i) { return kindOf(i) === kind ? Math.max(m, Number(i.no) || 0) : m; }, 0); }
+  function nextNo(kind) {
+    kind = kind || "invoice";
+    var key = kind === "estimate" ? "nextEstimateNo" : "nextInvoiceNo";
+    return Math.max(Math.floor(num(st(key), 1001)), maxNo(kind) + 1);
+  }
   function invById(id) { return data.invoices.filter(function (i) { return i.id === id; })[0]; }
   function invoiceDate(j) { return j.completedDate || (j.jobStatus === "done" ? (j.scheduled || today()) : ""); }
-  function draftFor(j) {
-    var c = clientById(j.clientId) || {}, date = invoiceDate(j);
+  function draftFor(j, kind) {
+    kind = kind === "estimate" ? "estimate" : "invoice";
+    var c = clientById(j.clientId) || {}, est = kind === "estimate", date = est ? today() : invoiceDate(j);
     var items = hasItems(j) ? j.items : [{ name: j.description || "Job", qty: 1, rate: Number(j.amount) || 0, unit: "flat" }];
     var lines = items.map(function (i) {
       var q = Number(i.qty) || 0, r = Number(i.rate) || 0;
-      return { date: date, name: i.name, qty: q, unit: i.unit || "", rate: r, amount: r2(q * r) };
+      return { date: est ? "" : date, name: i.name, qty: q, unit: i.unit || "", rate: r, amount: r2(q * r) };
     });
     var total = r2(lines.reduce(function (s, l) { return s + l.amount; }, 0));
-    var paid = j.billStatus === "paid" ? total : (j.billStatus === "partial" ? (Number(j.amountPaid) || 0) : 0);
+    var paid = est ? 0 : (j.billStatus === "paid" ? total : (j.billStatus === "partial" ? (Number(j.amountPaid) || 0) : 0));
     var mail = c.address || j.address || "";
-    return { jobId: j.id, clientId: j.clientId || "", date: date, dueDate: j.dueDate || addDays(today(), num(st("dueDays"), 14)),
+    var d = { kind: kind, jobId: j.id, clientId: j.clientId || "", date: date,
       billTo: { name: cname(j), address: mail, phone: c.phone || "", email: c.email || "" },
       site: j.address && j.address !== mail ? j.address : "", lines: lines, total: total, paid: paid, voided: false };
+    if (est) d.validUntil = addDays(date, num(st("estimateDays"), 30));
+    else d.dueDate = j.dueDate || addDays(today(), num(st("dueDays"), 14));
+    return d;
+  }
+  function savedFor(j, kind) { var id = kind === "estimate" ? j.estimateId : j.invoiceId; return id ? invById(id) : undefined; }
+  function openFor(jobId, kind) {
+    var j = jobById(jobId); if (!j) return;
+    var doc = savedFor(j, kind);
+    ui.invoice = doc ? { invId: doc.id } : { jobId: jobId, kind: kind };
+    renderInvoice();
   }
   function openInvoice(jobId) {
     var j = jobById(jobId); if (!j) return;
-    var inv = j.invoiceId && invById(j.invoiceId);
-    ui.invoice = inv ? { invId: inv.id } : { jobId: jobId };
-    renderInvoice();
+    openFor(jobId, (j.invoiceId && invById(j.invoiceId)) || j.jobStatus === "done" ? "invoice" : "estimate");
   }
   function logoSrc() { return st("logoData") || "logo.png"; }
   function fbIcon() { return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#1D5FA8"/><path fill="#fff" d="M13.3 19.5v-6.6h2.2l.4-2.6h-2.6V8.7c0-.8.3-1.3 1.4-1.3h1.3V5.1c-.2 0-1-.1-1.9-.1-2 0-3.3 1.2-3.3 3.4v1.9H8.6v2.6h2.2v6.6z"/></svg>'; }
@@ -663,8 +682,8 @@
     var biz = textLines(sv("businessAddress")).concat(textLines(sv("businessPhone"))).concat([sv("businessWebsite")]).map(function (l) { return "<span>" + esc(l) + "</span>"; }).join("");
     return '<div class="inv-head"><img class="inv-logo" src="' + esc(logoSrc()) + '" alt=""><div class="inv-biz"><b>' + esc(sv("businessName")) + "</b>" + biz + "</div></div>";
   }
-  function bizFootHtml() {
-    return '<div class="inv-foot"><span>' + esc(String(st("invoiceNote") || "").trim()) + '</span><div class="inv-social">' + fbIcon() + "<div><b>" + esc(sv("businessSocial")) + "</b>" + esc(sv("businessWebsite")) + "</div></div></div>";
+  function bizFootHtml(text) {
+    return '<div class="inv-foot"><span>' + esc(text === undefined ? String(st("invoiceNote") || "").trim() : text) + '</span><div class="inv-social">' + fbIcon() + "<div><b>" + esc(sv("businessSocial")) + "</b>" + esc(sv("businessWebsite")) + "</div></div></div>";
   }
   function renderPriceList() {
     var layer = $("#invoiceLayer"), s = ui.invoice, codes = s.codes !== false;
@@ -685,53 +704,69 @@
     var layer = $("#invoiceLayer"), s = ui.invoice, inv = null, draft = false;
     if (s && s.list) { renderPriceList(); return; }
     if (s && s.invId) inv = invById(s.invId);
-    else if (s && s.jobId) { var jj = jobById(s.jobId); if (jj) { inv = draftFor(jj); draft = true; } }
+    else if (s && s.jobId) { var jj = jobById(s.jobId); if (jj) { inv = draftFor(jj, s.kind); draft = true; } }
     if (!inv) { ui.invoice = null; layer.hidden = true; layer.innerHTML = ""; return; }
-    var b = inv.billTo || {}, due = inv.dueDate, bal = r2(inv.total - (inv.paid || 0));
+    var est = isEst(inv), kindWord = est ? "estimate" : "invoice";
+    var b = inv.billTo || {}, bal = r2(inv.total - (inv.paid || 0));
     var addr = addrLines(b.address).map(function (l) { return "<span>" + esc(l) + "</span>"; }).join("");
     var rows = inv.lines.map(function (l) {
-      return '<tr><td class="d">' + esc(l.date ? fmtDateLong(l.date) : "") + '</td><td class="q">' + esc(qtyFmt(l.qty) + (UNIT_SHORT[l.unit] || "")) + "</td><td>" + esc(l.name) + '</td><td class="r">' + esc(money(l.rate)) + '</td><td class="r">' + esc(money(l.amount)) + "</td></tr>";
+      return "<tr>" + (est ? "" : '<td class="d">' + esc(l.date ? fmtDateLong(l.date) : "") + "</td>") + '<td class="q">' + esc(qtyFmt(l.qty) + (UNIT_SHORT[l.unit] || "")) + "</td><td>" + esc(l.name) + '</td><td class="r">' + esc(money(l.rate)) + '</td><td class="r">' + esc(money(l.amount)) + "</td></tr>";
     }).join("");
-    var site = inv.site ? '<tr class="site"><td></td><td></td><td colspan="3">Service location: ' + esc(inv.site) + "</td></tr>" : "";
-    var biz = textLines(sv("businessAddress")).concat(textLines(sv("businessPhone"))).concat([sv("businessWebsite")]).map(function (l) { return "<span>" + esc(l) + "</span>"; }).join("");
-    var note = String(st("invoiceNote") || "").trim();
-    var msg = s.msg ? s.msg : (draft ? (inv.date ? "Preview. Issuing gives it invoice No. " + nextNo() + " and saves a copy." : "Mark the job done first so the invoice can be dated.") : "");
-    var bar = '<div class="inv-bar no-print"><span class="inv-msg">' + esc(msg) + '</span>' +
+    var site = inv.site ? '<tr class="site">' + (est ? "<td></td>" : "<td></td><td></td>") + '<td colspan="3">Service location: ' + esc(inv.site) + "</td></tr>" : "";
+    var noteText = est ? String(sv("estimateNote")).trim() : String(st("invoiceNote") || "").trim();
+    var jobId = inv.jobId, jobOk = !!(jobId && jobById(jobId));
+    var seg = jobOk ? '<span class="seg"><button type="button" data-act="setKind" data-kind="invoice" aria-pressed="' + (!est) + '">Invoice</button><button type="button" data-act="setKind" data-kind="estimate" aria-pressed="' + est + '">Estimate</button></span>' : "";
+    var msg = s.msg ? s.msg : (draft ? (inv.date && (est || inv.date) ? "Preview. Issuing gives it " + kindWord + " No. " + dispNo({ no: nextNo(kindOf(inv)), kind: inv.kind }) + " and saves a copy." : "Mark the job done first so the invoice can be dated.") : "");
+    var canIssue = !!inv.date;
+    var bar = '<div class="inv-bar no-print"><span class="inv-msg">' + esc(msg) + '</span>' + seg +
       '<button type="button" class="btn" data-act="closeInvoice">Close</button>' +
-      (draft ? '<button type="button" class="btn primary" data-act="issueInvoice"' + (inv.date ? "" : " disabled") + ">Issue invoice</button>" :
+      (draft ? '<button type="button" class="btn primary" data-act="issueInvoice"' + (canIssue ? "" : " disabled") + ">Issue " + kindWord + "</button>" :
         '<button type="button" class="btn" data-act="openInvFolder">Open folder</button><button type="button" class="btn" data-act="savePdf">Save PDF again</button>' +
-        (inv.voided ? "" : '<button type="button" class="btn' + (s.confirmVoid ? " danger" : "") + '" data-act="voidInv">' + (s.confirmVoid ? "Confirm void" : "Void") + '</button><button type="button" class="btn primary" data-act="printInvoice">Print</button>')) + "</div>";
-    layer.hidden = false;
-    layer.innerHTML = bar + '<div class="inv-sheet">' +
-      '<i class="inv-fold" style="top:3.667in"></i><i class="inv-fold" style="top:7.333in"></i>' + (inv.voided ? '<div class="inv-void">VOID</div>' : "") +
-      '<div class="inv-head"><img class="inv-logo" src="' + esc(logoSrc()) + '" alt=""><div class="inv-biz"><b>' + esc(sv("businessName")) + "</b>" + biz + "</div></div>" +
-      '<div class="inv-mid"><div class="inv-to"><small>Bill to</small><strong>' + esc(b.name || "") + "</strong>" + addr + "</div>" +
-      '<div class="inv-meta"><h1>INVOICE</h1><dl><dt>Invoice no.</dt><dd>' + (draft ? "Draft" : esc(inv.no)) + "</dd><dt>Date</dt><dd>" + esc(inv.date ? fmtDateLong(inv.date) : "") + "</dd><dt>Due</dt><dd>" + esc(due ? fmtDateLong(due) : "") + "</dd></dl></div></div>" +
-      '<table class="inv-table"><thead><tr><th>Date</th><th class="q">Qty</th><th>Description</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead><tbody>' + rows + site + "</tbody></table>" +
+        (inv.voided ? "" : (est ? '<button type="button" class="btn" data-act="toggleAccepted">' + (inv.accepted ? "Accepted (undo)" : "Mark accepted") + "</button>" : "") +
+          '<button type="button" class="btn' + (s.confirmVoid ? " danger" : "") + '" data-act="voidInv">' + (s.confirmVoid ? "Confirm void" : "Void") + '</button><button type="button" class="btn primary" data-act="printInvoice">Print</button>')) + "</div>";
+    var meta = est ?
+      "<dt>Estimate no.</dt><dd>" + (draft ? "Draft" : esc(dispNo(inv))) + "</dd><dt>Date</dt><dd>" + esc(fmtDateLong(inv.date)) + "</dd><dt>Valid until</dt><dd>" + esc(inv.validUntil ? fmtDateLong(inv.validUntil) : "") + "</dd>" :
+      "<dt>Invoice no.</dt><dd>" + (draft ? "Draft" : esc(inv.no)) + "</dd><dt>Date</dt><dd>" + esc(inv.date ? fmtDateLong(inv.date) : "") + "</dd><dt>Due</dt><dd>" + esc(inv.dueDate ? fmtDateLong(inv.dueDate) : "") + "</dd>";
+    var thead = "<tr>" + (est ? "" : "<th>Date</th>") + '<th class="q">Qty</th><th>Description</th><th class="r">Rate</th><th class="r">Amount</th></tr>';
+    var sum = est ? '<div class="inv-sum"><div class="grand"><span>Estimated total</span><span>' + esc(money(inv.total)) + "</span></div></div>" :
       '<div class="inv-sum"><div><span>Total</span><span>' + esc(money(inv.total)) + "</span></div>" + (inv.paid ? "<div><span>Paid</span><span>-" + esc(money(inv.paid)) + "</span></div>" : "") +
-      '<div class="grand"><span>Amount due</span><span>' + esc(money(bal)) + "</span></div></div>" +
-      '<div class="inv-foot"><span>' + esc(note) + '</span><div class="inv-social">' + fbIcon() + "<div><b>" + esc(sv("businessSocial")) + "</b>" + esc(sv("businessWebsite")) + "</div></div></div></div>";
+      '<div class="grand"><span>Amount due</span><span>' + esc(money(bal)) + "</span></div></div>";
+    var approve = est ? '<div class="inv-approve"><span>Approved by</span><span>Date</span></div>' : "";
+    layer.hidden = false;
+    layer.innerHTML = bar + '<div class="inv-sheet' + (est ? " est" : "") + '">' +
+      '<i class="inv-fold" style="top:3.667in"></i><i class="inv-fold" style="top:7.333in"></i>' + (inv.voided ? '<div class="inv-void">VOID</div>' : "") +
+      bizHeadHtml() +
+      '<div class="inv-mid"><div class="inv-to"><small>' + (est ? "Prepared for" : "Bill to") + "</small><strong>" + esc(b.name || "") + "</strong>" + addr + "</div>" +
+      '<div class="inv-meta"><h1>' + (est ? "ESTIMATE" : "INVOICE") + "</h1><dl>" + meta + "</dl></div></div>" +
+      '<table class="inv-table"><thead>' + thead + "</thead><tbody>" + rows + site + "</tbody></table>" + sum +
+      (est ? '<p class="inv-notes">' + esc(noteText) + "</p>" + approve : "") +
+      bizFootHtml(est ? "" : noteText) + "</div>";
   }
   function closeInvoice() { ui.invoice = null; renderInvoice(); if (ready) render(); }
   function setInvMsg(m) { if (ui.invoice) { ui.invoice.msg = m; renderInvoice(); } }
   function savePdfFor(inv) {
-    return window.ledger.savePdf({ client: (inv.billTo && inv.billTo.name) || inv.clientName, no: inv.no, date: inv.date }).then(function (r) {
-      setInvMsg(r && r.ok ? "Saved a PDF copy to " + r.path : "Could not save the PDF copy. The invoice itself is saved in Yard Ledger.");
-    }).catch(function () { setInvMsg("Could not save the PDF copy. The invoice itself is saved in Yard Ledger."); });
+    var word = isEst(inv) ? "estimate" : "invoice";
+    return window.ledger.savePdf({ client: (inv.billTo && inv.billTo.name) || inv.clientName, no: inv.no, date: inv.date, label: isEst(inv) ? "Estimate" : "Invoice" }).then(function (r) {
+      setInvMsg(r && r.ok ? "Saved a PDF copy to " + r.path : "Could not save the PDF copy. The " + word + " itself is saved in Yard Ledger.");
+    }).catch(function () { setInvMsg("Could not save the PDF copy. The " + word + " itself is saved in Yard Ledger."); });
   }
   function issueInvoice() {
-    var s = ui.invoice, j = s && s.jobId && jobById(s.jobId);
-    if (!j || (j.invoiceId && invById(j.invoiceId))) return;
-    var d = draftFor(j); if (!d.date) return;
-    if (j.billStatus === "unbilled") Object.assign(j, billPatch(j, "invoiced"), { updatedAt: Date.now() });
-    d.dueDate = j.dueDate || d.dueDate;
-    var no = nextNo();
+    var s = ui.invoice, j = s && s.jobId && jobById(s.jobId); if (!j) return;
+    var kind = s.kind === "estimate" ? "estimate" : "invoice";
+    if (savedFor(j, kind)) return;
+    var d = draftFor(j, kind); if (!d.date) return;
+    if (kind === "invoice") {
+      if (j.billStatus === "unbilled") Object.assign(j, billPatch(j, "invoiced"), { updatedAt: Date.now() });
+      d.dueDate = j.dueDate || d.dueDate;
+    }
+    var no = nextNo(kind);
     d.id = uid("i"); d.no = no; d.createdAt = Date.now();
     data.invoices.push(d);
-    j.invoiceId = d.id; j.invoiceNo = no; j.updatedAt = Date.now();
-    data.settings.nextInvoiceNo = no + 1;
+    if (kind === "invoice") { j.invoiceId = d.id; j.invoiceNo = no; data.settings.nextInvoiceNo = no + 1; }
+    else { j.estimateId = d.id; j.estimateNo = no; data.settings.nextEstimateNo = no + 1; }
+    j.updatedAt = Date.now();
     persist();
-    ui.invoice = { invId: d.id, msg: "Invoice " + no + " saved. Saving a PDF copy..." };
+    ui.invoice = { invId: d.id, msg: (kind === "estimate" ? "Estimate " : "Invoice ") + dispNo(d) + " saved. Saving a PDF copy..." };
     render(); renderInvoice();
     setTimeout(function () { savePdfFor(d); }, 300);
   }
@@ -739,47 +774,61 @@
     var s = ui.invoice, inv = s && s.invId && invById(s.invId); if (!inv) return;
     if (!s.confirmVoid) { s.confirmVoid = true; renderInvoice(); return; }
     inv.voided = true; inv.voidedAt = Date.now();
-    var j = jobById(inv.jobId); if (j && j.invoiceId === inv.id) { j.invoiceId = ""; j.invoiceNo = ""; }
-    persist(); ui.invoice = { invId: inv.id, msg: "Invoice " + inv.no + " is void. Its number will not be used again." };
+    var j = jobById(inv.jobId);
+    if (j && isEst(inv) && j.estimateId === inv.id) { j.estimateId = ""; j.estimateNo = ""; }
+    if (j && !isEst(inv) && j.invoiceId === inv.id) { j.invoiceId = ""; j.invoiceNo = ""; }
+    persist(); ui.invoice = { invId: inv.id, msg: (isEst(inv) ? "Estimate " : "Invoice ") + dispNo(inv) + " is void. Its number will not be used again." };
     render(); renderInvoice();
   }
+  function toggleAccepted() {
+    var s = ui.invoice, inv = s && s.invId && invById(s.invId); if (!inv || !isEst(inv)) return;
+    inv.accepted = !inv.accepted; inv.acceptedAt = inv.accepted ? Date.now() : 0;
+    persist(); renderInvoice();
+  }
 
-  /* ---------- Invoices tab ---------- */
+  /* ---------- Bills tab ---------- */
   function invRows() {
     var q = ui.iq.trim().toLowerCase();
     return data.invoices.filter(function (i) {
+      if (ui.ik && kindOf(i) !== ui.ik) return false;
       if (!q) return true;
-      return [i.no, (i.billTo && i.billTo.name) || "", i.date, i.date ? fmtDateLong(i.date) : ""].join(" ").toLowerCase().indexOf(q) !== -1;
-    }).sort(function (a, b) { return (Number(b.no) || 0) - (Number(a.no) || 0); });
+      return [dispNo(i), kindOf(i), (i.billTo && i.billTo.name) || "", i.date, i.date ? fmtDateLong(i.date) : ""].join(" ").toLowerCase().indexOf(q) !== -1;
+    }).sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); });
   }
   function invStatus(i) {
     if (i.voided) return '<span class="pill bad">Void</span>';
+    if (isEst(i)) {
+      if (i.accepted) return '<span class="pill good">Accepted</span>';
+      return i.validUntil && i.validUntil < today() ? '<span class="pill warn">Expired</span>' : '<span class="pill info">Open</span>';
+    }
     var j = jobById(i.jobId); if (!j) return '<span class="pill muted">Saved</span>';
     if (j.billStatus === "paid") return '<span class="pill good">Paid</span>';
     if (j.billStatus === "partial") return '<span class="pill warn">Part paid</span>';
     return isOverdue(j) ? '<span class="pill bad">Overdue</span>' : '<span class="pill info">Unpaid</span>';
   }
   function vInvoices(v) {
-    v.innerHTML = '<div class="tools"><input type="search" id="invSearch" placeholder="Search client, number or date" aria-label="Search invoices" value="' + esc(ui.iq) + '">' +
-      '<button type="button" class="btn" data-act="openInvFolderAll">Open invoices folder</button><span class="muted">' + plural(data.invoices.length, "invoice", "invoices") + "</span></div>" +
-      '<p class="hint muted">Issue an invoice from a finished job. Each one gets the next number, is dated the day the job was finished, and a PDF copy is saved in Documents\\Yard Ledger Invoices\\(client name).</p>' +
+    v.innerHTML = '<div class="tools"><input type="search" id="invSearch" placeholder="Search client, number or date" aria-label="Search bills" value="' + esc(ui.iq) + '">' +
+      '<select id="invKind" aria-label="Show"><option value=""' + (ui.ik ? "" : " selected") + '>Invoices and estimates</option><option value="invoice"' + (ui.ik === "invoice" ? " selected" : "") + '>Invoices only</option><option value="estimate"' + (ui.ik === "estimate" ? " selected" : "") + '>Estimates only</option></select>' +
+      '<button type="button" class="btn" data-act="openInvFolderAll">Open bills folder</button><span class="muted">' + plural(data.invoices.length, "bill", "bills") + "</span></div>" +
+      '<p class="hint muted">On a job, press Bill to make an estimate (before the work) or an invoice (after). Invoices are dated the day the job was finished. A PDF copy of each is saved in Documents\\Yard Ledger Invoices\\(client name).</p>' +
       '<section class="list" id="invList"></section>';
     fillInvList();
   }
   function fillInvList() {
     var el = $("#invList"); if (!el) return;
     var rows = invRows();
-    if (!data.invoices.length) { el.innerHTML = '<div class="empty"><h2>No invoices yet</h2><p>Open a finished job on the Jobs tab and press Invoice, then Issue invoice.</p></div>'; return; }
+    if (!data.invoices.length) { el.innerHTML = '<div class="empty"><h2>No bills yet</h2><p>Open a job on the Jobs tab and press Bill. Make an estimate before the work, or an invoice once it is finished.</p></div>'; return; }
     if (!rows.length) { el.innerHTML = '<div class="empty"><h2>Nothing matches</h2><p>Try a different search.</p></div>'; return; }
     var shown = rows.slice(0, ui.invLimit), html = "", year = "";
+    var yOf = function (r) { return (r.date || dstr(new Date(r.createdAt || Date.now()))).slice(0, 4); };
     shown.forEach(function (i) {
-      var y = (i.date || dstr(new Date(i.createdAt || Date.now()))).slice(0, 4);
+      var y = yOf(i);
       if (y !== year) {
         year = y;
-        var all = rows.filter(function (r) { return (r.date || dstr(new Date(r.createdAt || Date.now()))).slice(0, 4) === y && !r.voided; });
-        html += '<div class="yhead"><span>' + esc(y) + '</span><span class="muted">' + plural(all.length, "invoice", "invoices") + " · " + esc(money(r2(all.reduce(function (s, r) { return s + r.total; }, 0)))) + "</span></div>";
+        var inv = rows.filter(function (r) { return yOf(r) === y && !r.voided && !isEst(r); }), ests = rows.filter(function (r) { return yOf(r) === y && !r.voided && isEst(r); });
+        html += '<div class="yhead"><span>' + esc(y) + '</span><span class="muted">' + (inv.length ? plural(inv.length, "invoice", "invoices") + " · " + esc(money(r2(inv.reduce(function (s, r) { return s + r.total; }, 0)))) : "") + (inv.length && ests.length ? " · " : "") + (ests.length ? plural(ests.length, "estimate", "estimates") : "") + "</span></div>";
       }
-      html += '<div class="irow" data-id="' + esc(i.id) + '"><span class="num">#' + esc(i.no) + '</span><span class="dt">' + esc(i.date ? fmtDateLong(i.date) : "") + '</span><span class="nm">' + esc((i.billTo && i.billTo.name) || "") +
+      html += '<div class="irow" data-id="' + esc(i.id) + '"><span class="num">' + (isEst(i) ? "" : "#") + esc(dispNo(i)) + '</span><span class="dt">' + esc(i.date ? fmtDateLong(i.date) : "") + '</span><span class="nm">' + esc((i.billTo && i.billTo.name) || "") +
         '</span><span class="tot">' + esc(money(i.total)) + '</span><span class="st">' + invStatus(i) + '</span><span class="btns"><button type="button" class="btn small" data-act="viewInv">View</button></span></div>';
     });
     if (rows.length > ui.invLimit) html += '<div class="more"><button type="button" class="btn" data-act="moreInv">Show more (' + (rows.length - ui.invLimit) + " left)</button></div>";
@@ -873,6 +922,8 @@
       case "printList": ui.invoice = { list: true, codes: true }; renderInvoice(); break;
       case "toggleCodes": if (ui.invoice) { ui.invoice.codes = ui.invoice.codes === false; renderInvoice(); } break;
       case "issueInvoice": issueInvoice(); break;
+      case "setKind": { var sj = ui.invoice && (ui.invoice.jobId || (ui.invoice.invId && invById(ui.invoice.invId) && invById(ui.invoice.invId).jobId)); if (sj) openFor(sj, t.dataset.kind === "estimate" ? "estimate" : "invoice"); break; }
+      case "toggleAccepted": toggleAccepted(); break;
       case "voidInv": voidInvoice(); break;
       case "printInvoice": window.ledger.printInvoice().catch(function () {}); break;
       case "savePdf": { var si = ui.invoice && invById(ui.invoice.invId); if (si) savePdfFor(si); break; }
@@ -919,6 +970,7 @@
     var t = e.target;
     if (t.id === "jobSearch") { ui.jq = t.value; ui.jobLimit = PAGE; fillJobList(); }
     else if (t.id === "invSearch") { ui.iq = t.value; ui.invLimit = PAGE; fillInvList(); }
+    else if (t.id === "invKind") { ui.ik = t.value; ui.invLimit = PAGE; fillInvList(); }
     else if (t.id === "clientSearch") { ui.cq = t.value; ui.clientLimit = PAGE; fillClientList(); }
     else if (t.id === "jf-client") refreshClientHint();
     else if (t.classList.contains("it-qty")) { var r = t.closest(".item-row"); if (r) r.dataset.qtyauto = ""; updateTotals(); }
@@ -940,6 +992,7 @@
       if (t.dataset.field === "jobStatus") setJobStatus(id, t.value);
       else { var p = billPatch(j, t.value); patchJob(id, p); if (t.value === "partial") showForm("job", id, null); }
     }
+    else if (t.id === "invKind") { ui.ik = t.value; ui.invLimit = PAGE; fillInvList(); }
     else if (t.id === "logoFile") {
       var lf = t.files && t.files[0]; if (!lf) return;
       if (!/^image\/(png|jpeg)$/.test(lf.type) || lf.size > 2000000) { showErr("Pick a PNG or JPG logo under 2 MB."); t.value = ""; return; }
@@ -951,7 +1004,7 @@
     else if (t.dataset && t.dataset.setting) {
       var key = t.dataset.setting;
       data.settings[key] = t.type === "checkbox" ? t.checked : (t.type === "number" ? num(t.value, DEFAULTS[key]) : (t.tagName === "TEXTAREA" ? t.value.replace(/[ \t]+$/gm, "").trim() : t.value.trim()));
-      if (key === "nextInvoiceNo") { data.settings[key] = Math.max(Math.floor(num(data.settings[key], 1001)), maxNo() + 1); t.value = data.settings[key]; }
+      if (key === "nextInvoiceNo" || key === "nextEstimateNo") { data.settings[key] = Math.max(Math.floor(num(data.settings[key], 1001)), maxNo(key === "nextEstimateNo" ? "estimate" : "invoice") + 1); t.value = data.settings[key]; }
       persist(); renderTabs(); renderBar();
     }
     else if (t.id === "loginBox") window.ledger.setLogin(t.checked).then(function (on) { t.checked = !!on; }).catch(function () {});

@@ -217,6 +217,12 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .inv-social svg { width: 22px; height: 22px; flex: none; }
 .inv-social b { color: var(--ink); font-weight: 600; letter-spacing: 0.04em; display: block; }
 .inv-fold { display: none; position: absolute; left: 0; width: 0.2in; border-top: 1px solid #bbb; }
+.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.7); border-radius: 8px; overflow: hidden; }
+.seg button { background: transparent; color: #fff; border: 0; padding: 8px 14px; font: inherit; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: #fff; color: #1B1F1C; font-weight: 600; }
+.inv-approve { display: flex; gap: 0.5in; margin-top: 0.45in; font-size: 8.5pt; color: var(--soft); }
+.inv-approve span { flex: 1; border-top: 1px solid #8a948d; padding-top: 3px; }
+.inv-approve span:last-child { flex: 0 0 1.6in; }
 .inv-void { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-18deg); font-size: 80pt; font-weight: 700; letter-spacing: 0.1em; color: rgba(179, 38, 30, 0.22); border: 8px solid rgba(179, 38, 30, 0.22); padding: 0 28px; pointer-events: none; }
 .irow { display: grid; grid-template-columns: 64px 96px minmax(0, 1fr) 100px 96px auto; gap: 10px; align-items: center; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 .irow .num { font-weight: 700; font-variant-numeric: tabular-nums; }

@@ -167,7 +167,8 @@ app.whenReady().then(() => {
       fs.mkdirSync(dir, { recursive: true });
       const no = safeName(String(m.no), "0");
       const date = /^\d{4}-\d{2}-\d{2}$/.test(String(m.date)) ? m.date : "undated";
-      const file = path.join(dir, "Invoice " + no + " - " + date + ".pdf");
+      const label = m.label === "Estimate" ? "Estimate" : "Invoice";
+      const file = path.join(dir, label + " " + no + " - " + date + ".pdf");
       const buf = await win.webContents.printToPDF({ pageSize: "Letter", printBackground: true, preferCSSPageSize: true, margins: { marginType: "none" } });
       fs.writeFileSync(file, buf);
       return { ok: true, path: file };
