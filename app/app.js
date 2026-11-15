@@ -281,7 +281,7 @@
       ? '<button type="button" class="btn small danger" data-act="delJob">Confirm delete</button>'
       : '<button type="button" class="btn small" data-act="delJob">Delete</button>';
     var lines = "";
-    if (hasItems(j)) lines = '<ul class="lines">' + j.items.map(function (i) { return "<li><span>" + esc(i.name) + "</span><span>" + esc(lineRight(i)) + "</span></li>"; }).join("") + "</ul>";
+    if (hasItems(j)) lines = '<ul class="lines">' + j.items.map(function (i) { return "<li><span>" + esc(i.name) + (i.detail ? " <em>(" + esc(i.detail) + ")</em>" : "") + "</span><span>" + esc(lineRight(i)) + "</span></li>"; }).join("") + "</ul>";
     else if (j.description) lines = '<p class="notes">' + esc(j.description) + "</p>";
     return '<article class="card' + (od ? " overdue" : "") + '" data-id="' + esc(j.id) + '">' +
       '<div class="card-top"><div class="who"><h3>' + esc(cname(j)) + "</h3>" + (j.address ? '<p class="sub">' + esc(j.address) + "</p>" : "") +
@@ -328,7 +328,8 @@
   function itemRow(it) {
     it = it || {};
     return '<div class="item-row" data-unit="' + esc(it.unit || "") + '" data-sid="' + esc(it.serviceId || "") + '">' +
-      '<input class="it-name" type="text" list="serviceNames" placeholder="Service or shortcut, e.g. CG" value="' + esc(it.name || "") + '" aria-label="Service">' +
+      '<div class="it-main"><input class="it-name" type="text" list="serviceNames" placeholder="Service or shortcut, e.g. CG" value="' + esc(it.name || "") + '" aria-label="Service">' +
+      '<input class="it-detail" type="text" maxlength="200" placeholder="Details for the bill, e.g. Hydrangea, back flower bed" value="' + esc(it.detail || "") + '" aria-label="Details shown on the bill"></div>' +
       '<input class="it-qty" type="number" min="0" step="0.01" value="' + (it.qty === undefined || it.qty === "" ? "" : esc(it.qty)) + '" aria-label="Quantity">' +
       '<div class="price-cell"><input class="it-rate" type="number" min="0" step="0.01" value="' + (it.rate === undefined || it.rate === "" ? "" : esc(it.rate)) + '" aria-label="Price"><span class="it-unit">' + esc(unitLabel(it.unit)) + "</span></div>" +
       '<span class="it-total"></span><button type="button" class="btn small" data-act="rmItem">Remove</button></div>';
@@ -398,7 +399,7 @@
   }
   function collectItems() {
     return $$("#jf-items .item-row").map(function (r) {
-      return { name: $(".it-name", r).value.trim(), qty: num($(".it-qty", r).value, 0), rate: num($(".it-rate", r).value, 0), unit: r.dataset.unit || "", serviceId: r.dataset.sid || "" };
+      return { name: $(".it-name", r).value.trim(), qty: num($(".it-qty", r).value, 0), rate: num($(".it-rate", r).value, 0), unit: r.dataset.unit || "", serviceId: r.dataset.sid || "", detail: $(".it-detail", r).value.trim() };
     }).filter(function (i) { return i.name || i.qty || i.rate; }).map(function (i) { if (!i.name) i.name = "Item"; return i; });
   }
   function billPatch(j, v) {
@@ -760,7 +761,7 @@
     var items = hasItems(j) ? j.items : [{ name: j.description || "Job", qty: 1, rate: Number(j.amount) || 0, unit: "flat" }];
     var lines = items.map(function (i) {
       var q = Number(i.qty) || 0, r = Number(i.rate) || 0;
-      return { date: est ? "" : date, name: i.name, qty: q, unit: i.unit || "", rate: r, amount: r2(q * r) };
+      return { date: est ? "" : date, name: i.name, detail: i.detail || "", qty: q, unit: i.unit || "", rate: r, amount: r2(q * r) };
     });
     var total = r2(lines.reduce(function (s, l) { return s + l.amount; }, 0));
     var paid = est ? 0 : (j.billStatus === "paid" ? total : (j.billStatus === "partial" ? (Number(j.amountPaid) || 0) : 0));
@@ -817,7 +818,7 @@
     var b = inv.billTo || {}, bal = r2(inv.total - (inv.paid || 0));
     var addr = addrLines(b.address).map(function (l) { return "<span>" + esc(l) + "</span>"; }).join("");
     var rows = inv.lines.map(function (l) {
-      return "<tr>" + (est ? "" : '<td class="d">' + esc(l.date ? fmtDateLong(l.date) : "") + "</td>") + '<td class="q">' + esc(qtyFmt(l.qty) + (UNIT_SHORT[l.unit] || "")) + "</td><td>" + esc(l.name) + '</td><td class="r">' + esc(money(l.rate)) + '</td><td class="r">' + esc(money(l.amount)) + "</td></tr>";
+      return "<tr>" + (est ? "" : '<td class="d">' + esc(l.date ? fmtDateLong(l.date) : "") + "</td>") + '<td class="q">' + esc(qtyFmt(l.qty) + (UNIT_SHORT[l.unit] || "")) + "</td><td>" + esc(l.name) + (l.detail ? '<span class="inv-detail">' + esc(l.detail) + "</span>" : "") + '</td><td class="r">' + esc(money(l.rate)) + '</td><td class="r">' + esc(money(l.amount)) + "</td></tr>";
     }).join("");
     var site = inv.site ? '<tr class="site">' + (est ? "<td></td>" : "<td></td><td></td>") + '<td colspan="3">Service location: ' + esc(inv.site) + "</td></tr>" : "";
     var noteText = est ? String(sv("estimateNote")).trim() : String(st("invoiceNote") || "").trim();
