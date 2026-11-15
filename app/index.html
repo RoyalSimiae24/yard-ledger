@@ -181,7 +181,7 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .inv-bar { width: 8.5in; max-width: 100%; margin: 0 auto 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
 .inv-bar .inv-msg { margin-right: auto; color: #fff; font-size: 14px; }
 .inv-bar .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
-.inv-sheet { --ink: #1B1F1C; --soft: #5B645E; --rule: #DDE3DE; --green: #1E6B34; --tint: #EEF5EF;
+.inv-sheet { --ink: #1B1F1C; --soft: #5B645E; --rule: #C9C9C9; --green: #1B1F1C; --tint: #fff;
   position: relative; background: #fff; color: var(--ink); width: 8.5in; min-height: 10.95in; margin: 0 auto; padding: 0.5in 0.75in 0.45in;
   display: flex; flex-direction: column; font-family: "Segoe UI", Arial, sans-serif; font-size: 10.5pt; line-height: 1.4; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
 .inv-head { display: flex; justify-content: space-between; align-items: flex-start; height: 1.2in; }
@@ -195,7 +195,7 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .inv-to strong { display: block; font-size: 12pt; font-weight: 600; margin-top: 2px; }
 .inv-to span { display: block; }
 .inv-meta { text-align: right; }
-.inv-meta h1 { font-family: "Segoe UI", Arial, sans-serif; font-size: 22pt; font-weight: 300; letter-spacing: 0.16em; color: var(--green); margin: -4px 0 8px; }
+.inv-meta h1 { font-family: "Segoe UI", Arial, sans-serif; font-size: 22pt; font-weight: 300; letter-spacing: 0.16em; color: var(--ink); margin: -4px 0 8px; }
 .inv-meta dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 2px 18px; justify-content: end; text-align: right; }
 .inv-meta dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .inv-meta dt { align-self: center; }
@@ -210,11 +210,11 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .inv-table .site td { color: var(--soft); font-size: 9pt; border-bottom: 0; padding-top: 4px; }
 .inv-sum { margin: 0.2in 0 0 auto; width: 2.9in; font-variant-numeric: tabular-nums; }
 .inv-sum div { display: flex; justify-content: space-between; padding: 3px 6px; }
-.inv-sum .grand { background: var(--tint); border-top: 2px solid var(--green); margin-top: 4px; padding: 7px 6px; font-weight: 700; font-size: 12.5pt; color: var(--green); }
+.inv-sum .grand { background: none; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); margin-top: 4px; padding: 7px 6px; font-weight: 700; font-size: 12.5pt; color: var(--ink); }
 .inv-notes { margin: 0.25in 0 0; font-size: 9.5pt; color: var(--soft); white-space: pre-wrap; }
 .inv-foot { margin-top: auto; padding-top: 0.3in; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; font-size: 9.5pt; color: var(--soft); gap: 12px; }
-.inv-social { display: flex; align-items: center; gap: 8px; text-align: right; }
-.inv-social svg { width: 22px; height: 22px; flex: none; }
+.inv-social { display: flex; align-items: center; gap: 9px; text-align: left; line-height: 1.3; }
+.inv-social svg { width: 20px; height: 20px; flex: none; display: block; }
 .inv-social b { color: var(--ink); font-weight: 600; letter-spacing: 0.04em; display: block; }
 .inv-fold { display: none; position: absolute; left: 0; width: 0.2in; border-top: 1px solid #bbb; }
 .seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.7); border-radius: 8px; overflow: hidden; }
@@ -223,7 +223,7 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .inv-approve { display: flex; gap: 0.5in; margin-top: 0.45in; font-size: 8.5pt; color: var(--soft); }
 .inv-approve span { flex: 1; border-top: 1px solid #8a948d; padding-top: 3px; }
 .inv-approve span:last-child { flex: 0 0 1.6in; }
-.inv-void { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-18deg); font-size: 80pt; font-weight: 700; letter-spacing: 0.1em; color: rgba(179, 38, 30, 0.22); border: 8px solid rgba(179, 38, 30, 0.22); padding: 0 28px; pointer-events: none; }
+.inv-void { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) rotate(-18deg); font-size: 80pt; font-weight: 700; letter-spacing: 0.1em; color: rgba(0, 0, 0, 0.14); border: 8px solid rgba(0, 0, 0, 0.14); padding: 0 28px; pointer-events: none; }
 .irow { display: grid; grid-template-columns: 64px 96px minmax(0, 1fr) 100px 96px auto; gap: 10px; align-items: center; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 .irow .num { font-weight: 700; font-variant-numeric: tabular-nums; }
 .irow .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

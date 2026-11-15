@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("ledger", {
   save: (data) => ipcRenderer.invoke("data:save", data),
   exportData: (data) => ipcRenderer.invoke("data:export", data),
   importData: () => ipcRenderer.invoke("data:import"),
+  pickClients: () => ipcRenderer.invoke("clients:pick"),
   notify: (msg) => ipcRenderer.invoke("notify", msg),
   savePdf: (m) => ipcRenderer.invoke("invoice:savePdf", m),
   printInvoice: () => ipcRenderer.invoke("invoice:print"),

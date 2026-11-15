@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const rawfs = require("original-fs"); // plain file access: Electron treats anything ending in .asar as an archive
 const crypto = require("crypto");
+const { parseSheet } = require("./sheet.js");
 
 const VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8")).version;
 app.setAppUserModelId("com.yardledger.app");
@@ -135,6 +136,24 @@ app.whenReady().then(() => {
       return { data: d };
     } catch (e) {
       return { error: "That file is not a Yard Ledger backup." };
+    }
+  });
+
+  // Client import: the file is read here, in the app, and nothing is sent anywhere. Only rows go to the window; the file path is not kept.
+  ipcMain.handle("clients:pick", async () => {
+    const res = await dialog.showOpenDialog(win, {
+      title: "Choose your client spreadsheet",
+      properties: ["openFile"],
+      filters: [{ name: "Spreadsheet", extensions: ["xlsx", "csv", "txt"] }],
+    });
+    if (res.canceled || !res.filePaths.length) return { canceled: true };
+    try {
+      const f = res.filePaths[0];
+      const st = fs.statSync(f);
+      if (!st.isFile() || st.size > 25 * 1024 * 1024) return { error: "That file is too large to import (over 25 MB)." };
+      return parseSheet(fs.readFileSync(f), path.basename(f));
+    } catch (e) {
+      return { error: e && e.message && /^(That|Could)/.test(e.message) ? e.message : "Could not read that file." };
     }
   });
 

@@ -471,7 +471,7 @@
   }
   function vClients(v) {
     v.innerHTML =
-      '<div class="tools"><button type="button" class="btn primary" data-act="newClient">New client</button>' +
+      '<div class="tools"><button type="button" class="btn primary" data-act="newClient">New client</button><button type="button" class="btn" data-act="importClients">Import from spreadsheet</button>' +
       '<input type="search" id="clientSearch" placeholder="Search name, phone, address" aria-label="Search clients" value="' + esc(ui.cq) + '">' +
       '<span class="muted">' + plural(data.clients.length, "client", "clients") + "</span></div>" +
       '<div class="chips" id="clientChips"></div><div id="formWrap"></div><div id="batchWrap"></div><section class="list two" id="clientList"></section>';
@@ -554,6 +554,113 @@
     upsert("clients", { id: id, name: name, phone: $("#cf-phone").value.trim(), email: $("#cf-email").value.trim(), address: $("#cf-address").value.trim(),
       yardage: num($("#cf-yardage").value, 0), lists: lists, notes: $("#cf-notes").value.trim(), createdAt: ex.createdAt || Date.now() });
     ui.form = null; render();
+  }
+
+  /* ---------- Client import from a spreadsheet (read on this computer only) ---------- */
+  var imp = null;
+  var IMP_FIELDS = [
+    ["name", "Name", "Client name"], ["first", "First name", "Only if names are split"], ["last", "Last name", ""],
+    ["address", "Address", "Street"], ["city", "City", ""], ["state", "State", ""], ["zip", "ZIP", ""],
+    ["phone", "Phone", ""], ["email", "Email", ""], ["yardage", "Yardage", ""], ["notes", "Notes", ""],
+    ["spring", "Spring list", "yes / x / 1"], ["summer", "Summer list", ""], ["fall", "Fall list", ""], ["winter", "Winter list", ""], ["lists", "Seasons text", "One column naming seasons"]
+  ];
+  function impGuess(headers) {
+    var rules = { name: /^(client|customer|full|contact|account)?\s*(name)?$/, first: /first/, last: /last|surname/, address: /address|street|location|property/, city: /^city|town/, state: /^state|^st$/, zip: /zip|postal/,
+      phone: /phone|cell|mobile|tel/, email: /e-?mail/, yardage: /yard|sq\.? ?f|lawn size|size/, notes: /note|comment|memo|remark/, spring: /^spring/, summer: /^summer/, fall: /^(fall|autumn)/, winter: /^winter/, lists: /season|list|schedule/ };
+    var map = {}, used = {};
+    IMP_FIELDS.forEach(function (f) {
+      map[f[0]] = -1;
+      for (var i = 0; i < headers.length; i++) {
+        var h = String(headers[i] || "").toLowerCase().trim();
+        if (!h || used[i]) continue;
+        if (f[0] === "address" && /mail/.test(h)) continue;
+        if (f[0] === "name" && (!h || /first|last|file|user/.test(h) || !/name|client|customer|contact|account/.test(h))) continue;
+        if (rules[f[0]].test(h)) { map[f[0]] = i; used[i] = 1; break; }
+      }
+    });
+    return map;
+  }
+  function impPhone(v) {
+    var d = String(v || "").replace(/[^\d]/g, "");
+    if (d.length === 11 && d[0] === "1") d = d.slice(1);
+    return d.length === 10 ? d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6) : String(v || "").trim();
+  }
+  function impYes(v) { return /^(y|yes|x|true|1|✓|✔|✔️|on)$/i.test(String(v || "").trim()); }
+  function impRecord(row, map) {
+    function g(k) { var i = map[k]; return i >= 0 && row[i] !== undefined ? String(row[i]).trim() : ""; }
+    var name = g("name") || [g("first"), g("last")].filter(Boolean).join(" ");
+    if (!name) return null;
+    var tail = [g("city"), [g("state"), g("zip")].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    var street = g("address"), addr = street ? (tail && street.toLowerCase().indexOf(g("city").toLowerCase()) === -1 ? street + ", " + tail : street) : tail;
+    var lists = {}, txt = g("lists").toLowerCase();
+    SEASONS.forEach(function (s) { lists[s[0]] = g(s[0]) ? impYes(g(s[0])) : false; });
+    if (txt) {
+      if (/spring/.test(txt)) lists.spring = true; if (/summer|mow/.test(txt)) lists.summer = true;
+      if (/fall|autumn/.test(txt)) lists.fall = true; if (/winter|snow/.test(txt)) lists.winter = true;
+    }
+    return { name: name.slice(0, 120), phone: impPhone(g("phone")).slice(0, 40), email: g("email").slice(0, 120), address: addr.slice(0, 200), yardage: num(g("yardage").replace(/[^\d.]/g, ""), 0), lists: lists, notes: g("notes").slice(0, 600) };
+  }
+  function impKey(n) { return String(n).toLowerCase().replace(/\s+/g, " ").trim(); }
+  function impPlan() {
+    var sh = imp.sheets[imp.sheet], rows = sh.rows.slice(1), seen = {}, existing = {}, plan = { add: [], merge: [], skip: 0, dup: 0, blank: 0 };
+    data.clients.forEach(function (c) { existing[impKey(c.name)] = c; });
+    rows.forEach(function (r) {
+      var rec = impRecord(r, imp.map); if (!rec) { plan.blank++; return; }
+      var k = impKey(rec.name);
+      if (seen[k]) { plan.dup++; return; } seen[k] = 1;
+      var ex = existing[k];
+      if (!ex) plan.add.push(rec);
+      else if (imp.policy === "skip") plan.skip++;
+      else plan.merge.push({ ex: ex, rec: rec });
+    });
+    return plan;
+  }
+  function impHtml() {
+    var sh = imp.sheets[imp.sheet], headers = sh.rows[0] || [], plan = impPlan();
+    var opts = function (sel) { return '<option value="-1">(none)</option>' + headers.map(function (h, i) { return '<option value="' + i + '"' + (i === sel ? " selected" : "") + ">" + esc(h || "Column " + (i + 1)) + "</option>"; }).join(""); };
+    var prev = plan.add.concat(plan.merge.map(function (m) { return m.rec; })).slice(0, 5);
+    return '<div class="card" id="impPanel"><h2>Import clients from a spreadsheet</h2>' +
+      '<p class="muted">The file is read on this computer only. Nothing is uploaded, and the app does not keep the file. When you are done, delete extra copies of the spreadsheet, since it holds your clients\' details.</p>' +
+      (imp.sheets.length > 1 ? '<label>Sheet<select data-imp="sheet">' + imp.sheets.map(function (s, i) { return '<option value="' + i + '"' + (i === imp.sheet ? " selected" : "") + ">" + esc(s.name) + "</option>"; }).join("") + "</select></label>" : "") +
+      '<p><strong>Match your columns.</strong> The first row is treated as column names.</p><div class="grid">' +
+      IMP_FIELDS.map(function (f) { return "<label>" + esc(f[1]) + '<select data-imp="map" data-field="' + f[0] + '">' + opts(imp.map[f[0]]) + "</select></label>"; }).join("") + "</div>" +
+      '<label>If a client with the same name is already in the app<select data-imp="policy"><option value="fill"' + (imp.policy === "fill" ? " selected" : "") + '>Fill in only the blank details</option><option value="overwrite"' + (imp.policy === "overwrite" ? " selected" : "") + '>Replace with the spreadsheet details</option><option value="skip"' + (imp.policy === "skip" ? " selected" : "") + ">Skip them</option></select></label>" +
+      '<p id="impCount"><strong>' + plural(plan.add.length, "new client", "new clients") + "</strong>, " + plural(plan.merge.length, "existing client", "existing clients") + " updated, " + plan.skip + " skipped" +
+      (plan.dup ? ", " + plan.dup + " repeated in the file" : "") + (plan.blank ? ", " + plan.blank + " rows with no name" : "") + ".</p>" +
+      (prev.length ? '<table class="plain"><tbody>' + prev.map(function (r) { return "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.phone) + "</td><td>" + esc(r.address) + "</td></tr>"; }).join("") + "</tbody></table>" : '<p class="muted">Choose the Name column to see a preview.</p>') +
+      '<div class="actions"><button type="button" class="btn primary" data-act="impConfirm"' + (plan.add.length + plan.merge.length ? "" : " disabled") + '>Import</button><button type="button" class="btn" data-act="closeForm">Cancel</button></div></div>';
+  }
+  function impShow() { var w = $("#formWrap"); if (!w) return; ui.form = { kind: "import" }; w.innerHTML = impHtml(); w.scrollIntoView({ block: "start", behavior: "smooth" }); }
+  function impStart() {
+    if (locked) return;
+    window.ledger.pickClients().then(function (r) {
+      if (!r || r.canceled) return;
+      if (r.error) { showErr(r.error); return; }
+      showErr("");
+      imp = { sheets: r.sheets, sheet: 0, policy: "fill", map: impGuess(r.sheets[0].rows[0] || []) };
+      impShow();
+    }).catch(function () { showErr("Could not read that file."); });
+  }
+  function impChange(t) {
+    if (!imp) return;
+    if (t.dataset.imp === "sheet") { imp.sheet = num(t.value, 0); imp.map = impGuess(imp.sheets[imp.sheet].rows[0] || []); }
+    else if (t.dataset.imp === "map") imp.map[t.dataset.field] = num(t.value, -1);
+    else if (t.dataset.imp === "policy") imp.policy = t.value;
+    impShow();
+  }
+  function impConfirm() {
+    if (!imp) return;
+    var plan = impPlan(), now = Date.now(), over = imp.policy === "overwrite";
+    plan.add.forEach(function (r, i) { r.id = uid("c") + i; r.createdAt = now; data.clients.push(r); });
+    plan.merge.forEach(function (m) {
+      ["phone", "email", "address", "notes"].forEach(function (k) { if (m.rec[k] && (over || !m.ex[k])) m.ex[k] = m.rec[k]; });
+      if (m.rec.yardage && (over || !m.ex.yardage)) m.ex.yardage = m.rec.yardage;
+      m.ex.lists = m.ex.lists || {};
+      SEASONS.forEach(function (s) { if (m.rec.lists[s[0]]) m.ex.lists[s[0]] = true; else if (over && imp.map[s[0]] >= 0) m.ex.lists[s[0]] = false; });
+    });
+    var a = plan.add.length, u = plan.merge.length;
+    imp = null; ui.form = null; rebuildIndex(); persist(); render();
+    note("Imported " + plural(a, "new client", "new clients") + (u ? " and updated " + plural(u, "existing client", "existing clients") : "") + ".");
   }
 
   /* ---------- Services ---------- */
@@ -677,7 +784,7 @@
     openFor(jobId, (j.invoiceId && invById(j.invoiceId)) || j.jobStatus === "done" ? "invoice" : "estimate");
   }
   function logoSrc() { return st("logoData") || "logo.png"; }
-  function fbIcon() { return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#1D5FA8"/><path fill="#fff" d="M13.3 19.5v-6.6h2.2l.4-2.6h-2.6V8.7c0-.8.3-1.3 1.4-1.3h1.3V5.1c-.2 0-1-.1-1.9-.1-2 0-3.3 1.2-3.3 3.4v1.9H8.6v2.6h2.2v6.6z"/></svg>'; }
+  function fbIcon() { return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.6" fill="none" stroke="#1B1F1C" stroke-width="1.6"/><path fill="#1B1F1C" d="M13 20v-7h2.4l.4-2.8H13V8.5c0-.8.3-1.3 1.4-1.3h1.5V4.7c-.3 0-1.1-.1-2.1-.1-2.2 0-3.6 1.300-3.600 3.700v2H8.200V13h2.400v7z"/></svg>'; }
   function bizHeadHtml() {
     var biz = textLines(sv("businessAddress")).concat(textLines(sv("businessPhone"))).concat([sv("businessWebsite")]).map(function (l) { return "<span>" + esc(l) + "</span>"; }).join("");
     return '<div class="inv-head"><img class="inv-logo" src="' + esc(logoSrc()) + '" alt=""><div class="inv-biz"><b>' + esc(sv("businessName")) + "</b>" + biz + "</div></div>";
@@ -884,7 +991,7 @@
     w.scrollIntoView({ block: "start", behavior: "smooth" });
     var first = $("input:not([type=hidden])", w); if (first) first.focus({ preventScroll: true });
   }
-  function closeForm() { ui.form = null; var w = $("#formWrap"); if (w) w.innerHTML = ""; }
+  function closeForm() { ui.form = null; imp = null; var w = $("#formWrap"); if (w) w.innerHTML = ""; }
   function rowId(el) { var c = el.closest("[data-id]"); return c ? c.getAttribute("data-id") : null; }
   function clearConfirm() { if (ui.confirm) { ui.confirm = null; render(); } }
   function repeatPrefill(j) {
@@ -907,6 +1014,8 @@
       case "repeat": if (j) { showForm("job", null, repeatPrefill(j)); } break;
       case "jobFor": { var c = clientById(id); ui.tab = "jobs"; render(); showForm("job", null, c ? { clientName: c.name, clientId: c.id, address: c.address } : null); break; }
       case "newClient": showForm("client", null); break;
+      case "importClients": impStart(); break;
+      case "impConfirm": impConfirm(); break;
       case "editClient": showForm("client", id); break;
       case "newService": showForm("service", null); break;
       case "editService": showForm("service", id); break;
@@ -978,7 +1087,8 @@
   });
   document.addEventListener("change", function (e) {
     var t = e.target;
-    if (t.id === "jobTypeSel") { ui.jobType = t.value; ui.jobLimit = PAGE; fillJobList(); }
+    if (t.dataset && t.dataset.imp) impChange(t);
+    else if (t.id === "jobTypeSel") { ui.jobType = t.value; ui.jobLimit = PAGE; fillJobList(); }
     else if (t.id === "jobSort") { ui.sort = t.value; ui.jobLimit = PAGE; fillJobList(); }
     else if (t.id === "jf-client") onClientChosen();
     else if (t.classList.contains("it-name")) applyService(t.closest(".item-row"));
