@@ -5,14 +5,17 @@
   var SEASONS = [["spring", "Spring clean-up"], ["summer", "Summer mowing"], ["fall", "Fall clean-up"], ["winter", "Winter clean-up"]];
   var TYPES = [["lawn", "Lawn care"], ["landscape", "Landscaping"]];
   var UNITS = [["yard", "per yard"], ["flat", "flat price"], ["hour", "per hour"], ["each", "each"]];
-  var UNIT_SHORT = { yard: " yd", hour: " hr" };
+  var MUNITS = [["each", "each"], ["cuyd", "per cubic yard"], ["bag", "per bag"], ["foot", "per foot"], ["ton", "per ton"], ["flat", "flat price"]];
+  var MCATS = [["plant", "Plants and shrubs"], ["tree", "Trees"], ["mulch", "Mulch and soil"], ["rock", "Rock and stone"], ["irrigation", "Tubing and outlets"], ["other", "Other"]];
+  var UNIT_SHORT = { yard: " yd", hour: " hr", cuyd: " cu yd", bag: " bag", foot: " ft", ton: " ton" };
+  var KINDS = [["service", "Service"], ["hourly", "Hourly labor"], ["material", "Material"]];
   var JOB = [["todo", "To do"], ["scheduled", "Scheduled"], ["progress", "In progress"], ["done", "Done"]];
   var BILL = [["unbilled", "Not billed"], ["invoiced", "Invoiced"], ["partial", "Partly paid"], ["paid", "Paid"]];
   var JOB_TONE = { todo: "muted", scheduled: "info", progress: "warn", done: "good" };
   var BILL_TONE = { unbilled: "muted", invoiced: "info", partial: "warn", paid: "good" };
   var FILTERS = [["all", "All"], ["todo", "To do"], ["tobill", "Needs a bill"], ["unpaid", "Unpaid"], ["overdue", "Overdue"], ["done", "Done and paid"]];
-  var TABS = [["overview", "Overview"], ["jobs", "Jobs"], ["clients", "Clients"], ["invoices", "Bills"], ["services", "Services"], ["settings", "Settings"]];
-  var DEFAULTS = { businessName: "Lima's Landscaping", businessAddress: "1870 W Apricot Ln\nLincoln, NE 68522", businessPhone: "402-217-5496\n402-217-5497", businessWebsite: "www.limaslandscaping.com", businessSocial: "LIMAS LANDSCAPING", invoiceNote: "Thank you for your business!", nextInvoiceNo: 1001, nextEstimateNo: 1001, estimateDays: 30, estimateNote: "This is an estimate, not a bill. The final price may change if the work changes.", logoData: "", dueDays: 14, warnAfterDays: 20, notify: true, lastNotified: "" };
+  var TABS = [["overview", "Overview"], ["jobs", "Jobs"], ["clients", "Clients"], ["invoices", "Bills"], ["services", "Services"], ["materials", "Materials"], ["settings", "Settings"]];
+  var DEFAULTS = { businessName: "Lima's Landscaping", businessAddress: "1870 W Apricot Ln\nLincoln, NE 68522", businessPhone: "402-217-5496\n402-217-5497", businessWebsite: "www.limaslandscaping.com", businessSocial: "LIMAS LANDSCAPING", invoiceNote: "Thank you for your business!", nextInvoiceNo: 1001, nextEstimateNo: 1001, estimateDays: 30, hourlyRate: 50, estimateNote: "This is an estimate, not a bill. The final price may change if the work changes.", logoData: "", dueDays: 14, warnAfterDays: 20, notify: true, lastNotified: "" };
   var LATE_DAYS = 30;
 
   /* ---------- helpers ---------- */
@@ -41,7 +44,7 @@
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
 
   /* ---------- state ---------- */
-  var data = { jobs: [], clients: [], services: [], invoices: [], settings: {} };
+  var data = { jobs: [], clients: [], services: [], materials: [], invoices: [], settings: {} };
   var locked = false;
   var ready = false;
   var appVersion = "";
@@ -69,6 +72,12 @@
     return data.services.filter(function (s) { return s.code && String(s.code).trim().toLowerCase() === n; })[0] ||
       data.services.filter(function (s) { return String(s.name || "").trim().toLowerCase() === n; })[0];
   }
+  function matName(m) { return String(m.name || "") + (m.size ? ", " + m.size : ""); }
+  function materialByName(n) {
+    n = String(n || "").trim().toLowerCase();
+    if (!n) return undefined;
+    return data.materials.filter(function (m) { return matName(m).toLowerCase() === n; })[0] || data.materials.filter(function (m) { return String(m.name || "").trim().toLowerCase() === n; })[0];
+  }
   function jobById(id) { return data.jobs.filter(function (j) { return j.id === id; })[0]; }
   function cname(j) { var c = clientById(j.clientId); return (c && c.name) || j.clientName || j.client || "Unnamed client"; }
   function hasItems(j) { return Array.isArray(j.items) && j.items.length > 0; }
@@ -89,7 +98,7 @@
     if (hasItems(j)) return j.items.map(function (i) { return i.name; }).join(", ");
     return j.description || "";
   }
-  function unitLabel(u) { var f = UNITS.filter(function (x) { return x[0] === u; })[0]; return f ? f[1] : ""; }
+  function unitLabel(u) { var f = UNITS.concat(MUNITS).filter(function (x) { return x[0] === u; })[0]; return f ? f[1] : ""; }
 
   /* ---------- reminders ---------- */
   function billStart(j) { return j.completedDate || j.scheduled || dstr(new Date(j.createdAt || Date.now())); }
@@ -153,6 +162,8 @@
     $("#serviceNames").innerHTML = data.services.map(function (s) {
       return (s.code ? '<option value="' + esc(s.code) + '" label="' + esc(s.name) + '"></option>' : "") +
         '<option value="' + esc(s.name) + '" label="' + esc(money(s.rate) + " " + unitLabel(s.unit)) + '"></option>';
+    }).join("") + data.materials.map(function (m) {
+      return '<option value="' + esc(matName(m)) + '" label="' + esc(money(m.price) + " " + unitLabel(m.unit)) + '"></option>';
     }).join("");
   }
   function render() {
@@ -160,7 +171,7 @@
     renderTabs(); renderBar(); renderLists();
     var v = $("#view");
     if (!ready) { v.innerHTML = '<div class="empty"><h2>Loading</h2><p>Opening your saved jobs.</p></div>'; return; }
-    ({ overview: vOverview, jobs: vJobs, clients: vClients, invoices: vInvoices, services: vServices, settings: vSettings })[ui.tab](v);
+    ({ overview: vOverview, jobs: vJobs, clients: vClients, invoices: vInvoices, services: vServices, materials: vMaterials, settings: vSettings })[ui.tab](v);
   }
   function go(tab) {
     ui.tab = tab; ui.form = null; ui.confirm = null; ui.batch = false;
@@ -327,8 +338,8 @@
   /* job form */
   function itemRow(it) {
     it = it || {};
-    return '<div class="item-row" data-unit="' + esc(it.unit || "") + '" data-sid="' + esc(it.serviceId || "") + '">' +
-      '<div class="it-main"><input class="it-name" type="text" list="serviceNames" placeholder="Service or shortcut, e.g. CG" value="' + esc(it.name || "") + '" aria-label="Service">' +
+    return '<div class="item-row" data-unit="' + esc(it.unit || "") + '" data-sid="' + esc(it.serviceId || "") + '" data-mid="' + esc(it.materialId || "") + '" data-cost="' + esc(it.cost === undefined || it.cost === "" ? "" : it.cost) + '">' +
+      '<div class="it-main"><div class="it-top"><select class="it-kind" aria-label="Kind of line">' + opts(KINDS, it.kind || "service") + '</select><input class="it-name" type="text" list="serviceNames" placeholder="Service or shortcut, e.g. CG" value="' + esc(it.name || "") + '" aria-label="Service, material or shortcut"></div>' +
       '<input class="it-detail" type="text" maxlength="200" placeholder="Details for the bill, e.g. Hydrangea, back flower bed" value="' + esc(it.detail || "") + '" aria-label="Details shown on the bill"></div>' +
       '<input class="it-qty" type="number" min="0" step="0.01" value="' + (it.qty === undefined || it.qty === "" ? "" : esc(it.qty)) + '" aria-label="Quantity">' +
       '<div class="price-cell"><input class="it-rate" type="number" min="0" step="0.01" value="' + (it.rate === undefined || it.rate === "" ? "" : esc(it.rate)) + '" aria-label="Price"><span class="it-unit">' + esc(unitLabel(it.unit)) + "</span></div>" +
@@ -348,10 +359,12 @@
       '<label>Scheduled date<input type="date" id="jf-scheduled" value="' + esc(j.scheduled || "") + '"></label>' +
       '<label>Job address<input type="text" id="jf-address" maxlength="200" value="' + esc(j.address || "") + '"></label></div>' +
       '<div class="checks" id="jf-hintwrap" hidden><label><input type="checkbox" id="jf-addClient" checked> This client is not in your list yet. Add them to the client list.</label></div>' +
-      '<div class="field"><span>Services</span><div class="items-head"><span>Service</span><span>Qty</span><span>Price</span><span>Amount</span><span></span></div>' +
+      '<div class="field"><span>Services and materials</span><div class="items-head"><span>Service or material</span><span>Qty</span><span>Price</span><span>Amount</span><span></span></div>' +
       '<div id="jf-items">' + items.map(itemRow).join("") + "</div></div>" +
-      '<div class="actions"><button type="button" class="btn small" data-act="addItem">Add another service</button></div>' +
+      '<div class="actions"><button type="button" class="btn small" data-act="addItem">Add another line</button></div>' +
       '<div class="total-line"><span>Total</span><strong id="jf-total">$0.00</strong></div>' +
+      '<label>On the bill<select id="jf-style">' + opts([["separate", "Show materials and labor as separate lines"], ["combined", "Combine each material with the labor under it"]], j.billStyle || "separate") + "</select></label>" +
+      '<p class="hint">Combined: list a material, then its labor lines right below it. The bill shows one price for the material installed, and the hourly rate and labor lines are not shown.</p>' +
       '<label>Notes<textarea id="jf-notes" maxlength="600" placeholder="Gate code, materials, anything to remember">' + esc(notes) + "</textarea></label>" +
       '<div class="grid"><label>Job status<select id="jf-jobStatus">' + opts(JOB, j.jobStatus || "todo") + "</select></label>" +
       '<label>Payment status<select id="jf-billStatus">' + opts(BILL, j.billStatus || "unbilled") + "</select></label>" +
@@ -384,9 +397,42 @@
     }
     refreshClientHint();
   }
+  function setKind(row, k) { row.dataset.kindv = k; $(".it-kind", row).value = k; $(".it-qty", row).setAttribute("aria-label", k === "hourly" ? "Hours" : "Quantity"); }
+  function applyMaterial(row, m) {
+    setKind(row, "material");
+    $(".it-name", row).value = matName(m);
+    row.dataset.mid = m.id; row.dataset.sid = ""; row.dataset.unit = m.unit || "each"; row.dataset.cost = m.cost === "" || m.cost === undefined || m.cost === null ? "" : m.cost;
+    $(".it-rate", row).value = m.price; $(".it-unit", row).textContent = unitLabel(m.unit);
+    if (!$(".it-qty", row).value || row.dataset.qtyauto) { $(".it-qty", row).value = 1; row.dataset.qtyauto = ""; }
+    updateTotals();
+  }
+  function onKind(row) {
+    var k = $(".it-kind", row).value; setKind(row, k);
+    if (k === "hourly") {
+      row.dataset.unit = "hour"; row.dataset.mid = ""; row.dataset.cost = ""; row.dataset.qtyauto = "";
+      $(".it-rate", row).value = num(st("hourlyRate"), 50); $(".it-unit", row).textContent = unitLabel("hour");
+      if (!$(".it-qty", row).value || $(".it-qty", row).value === "1") $(".it-qty", row).value = "";
+      $(".it-qty", row).focus();
+    } else if (k === "material") {
+      var m = materialByName($(".it-name", row).value); if (m) applyMaterial(row, m); else { row.dataset.unit = row.dataset.unit === "hour" ? "each" : row.dataset.unit; row.dataset.sid = ""; $(".it-unit", row).textContent = unitLabel(row.dataset.unit); }
+    } else {
+      row.dataset.mid = ""; row.dataset.cost = "";
+      var s = serviceByName($(".it-name", row).value);
+      if (s) applyService(row); else { row.dataset.unit = "flat"; $(".it-unit", row).textContent = unitLabel("flat"); }
+    }
+    updateTotals();
+  }
   function applyService(row) {
-    var s = serviceByName($(".it-name", row).value);
+    var nv = $(".it-name", row).value, s = serviceByName(nv), m = materialByName(nv);
+    if (m && (!s || $(".it-kind", row).value === "material")) { applyMaterial(row, m); return; }
     if (!s) { row.dataset.sid = ""; return; }
+    if ($(".it-kind", row).value === "material") { setKind(row, "service"); }
+    row.dataset.mid = ""; row.dataset.cost = "";
+    if ($(".it-kind", row).value === "hourly") {
+      $(".it-name", row).value = s.name; row.dataset.sid = s.id; row.dataset.unit = "hour";
+      if (!$(".it-rate", row).value) $(".it-rate", row).value = num(st("hourlyRate"), 50);
+      $(".it-unit", row).textContent = unitLabel("hour"); updateTotals(); return;
+    }
     var c = clientByName($("#jf-client").value);
     $(".it-name", row).value = s.name;
     row.dataset.sid = s.id; row.dataset.unit = s.unit;
@@ -399,7 +445,7 @@
   }
   function collectItems() {
     return $$("#jf-items .item-row").map(function (r) {
-      return { name: $(".it-name", r).value.trim(), qty: num($(".it-qty", r).value, 0), rate: num($(".it-rate", r).value, 0), unit: r.dataset.unit || "", serviceId: r.dataset.sid || "", detail: $(".it-detail", r).value.trim() };
+      return { name: $(".it-name", r).value.trim(), qty: num($(".it-qty", r).value, 0), rate: num($(".it-rate", r).value, 0), unit: r.dataset.unit || "", serviceId: r.dataset.sid || "", detail: $(".it-detail", r).value.trim(), kind: $(".it-kind", r).value, materialId: r.dataset.mid || "", cost: r.dataset.cost === "" || r.dataset.cost === undefined ? "" : num(r.dataset.cost, 0) };
     }).filter(function (i) { return i.name || i.qty || i.rate; }).map(function (i) { if (!i.name) i.name = "Item"; return i; });
   }
   function billPatch(j, v) {
@@ -427,7 +473,7 @@
     if ((bill === "invoiced" || bill === "partial") && !due) due = addDays(today(), num(st("dueDays"), 14));
     var job = {
       id: id, clientId: client ? client.id : "", clientName: name, type: $("#jf-type").value, address: $("#jf-address").value.trim(),
-      scheduled: $("#jf-scheduled").value, items: items, amount: total, jobStatus: jobStatus, billStatus: bill, dueDate: due, amountPaid: paid,
+      scheduled: $("#jf-scheduled").value, billStyle: $("#jf-style").value, items: items, amount: total, jobStatus: jobStatus, billStatus: bill, dueDate: due, amountPaid: paid,
       notes: $("#jf-notes").value.trim(), completedDate: jobStatus === "done" ? (existing.completedDate || today()) : "",
       createdAt: existing.createdAt || Date.now(), updatedAt: Date.now()
     };
@@ -557,25 +603,30 @@
     ui.form = null; render();
   }
 
-  /* ---------- Client import from a spreadsheet (read on this computer only) ---------- */
+  /* ---------- Import from a spreadsheet, Word file or CSV (read on this computer only) ---------- */
   var imp = null;
-  var IMP_FIELDS = [
-    ["name", "Name", "Client name"], ["first", "First name", "Only if names are split"], ["last", "Last name", ""],
-    ["address", "Address", "Street"], ["city", "City", ""], ["state", "State", ""], ["zip", "ZIP", ""],
-    ["phone", "Phone", ""], ["email", "Email", ""], ["yardage", "Yardage", ""], ["notes", "Notes", ""],
-    ["spring", "Spring list", "yes / x / 1"], ["summer", "Summer list", ""], ["fall", "Fall list", ""], ["winter", "Winter list", ""], ["lists", "Seasons text", "One column naming seasons"]
+  var CLIENT_FIELDS = [
+    ["name", "Name"], ["first", "First name"], ["last", "Last name"], ["address", "Address"], ["city", "City"], ["state", "State"], ["zip", "ZIP"],
+    ["phone", "Phone"], ["email", "Email"], ["yardage", "Yardage"], ["notes", "Notes"],
+    ["spring", "Spring list"], ["summer", "Summer list"], ["fall", "Fall list"], ["winter", "Winter list"], ["lists", "Seasons text"]
   ];
-  function impGuess(headers) {
-    var rules = { name: /^(client|customer|full|contact|account)?\s*(name)?$/, first: /first/, last: /last|surname/, address: /address|street|location|property/, city: /^city|town/, state: /^state|^st$/, zip: /zip|postal/,
-      phone: /phone|cell|mobile|tel/, email: /e-?mail/, yardage: /yard|sq\.? ?f|lawn size|size/, notes: /note|comment|memo|remark/, spring: /^spring/, summer: /^summer/, fall: /^(fall|autumn)/, winter: /^winter/, lists: /season|list|schedule/ };
-    var map = {}, used = {};
-    IMP_FIELDS.forEach(function (f) {
+  var MATERIAL_FIELDS = [["name", "Item name"], ["size", "Size or grade"], ["supplier", "Supplier"], ["category", "Category"], ["unit", "Unit (each, yard, bag...)"], ["cost", "Your cost"], ["price", "Price you charge"]];
+  function impFields() { return imp.kind === "materials" ? MATERIAL_FIELDS : CLIENT_FIELDS; }
+  var CLIENT_RULES = { name: /^(client|customer|full|contact|account)?\s*(name)?$/, first: /first/, last: /last|surname/, address: /address|street|location|property/, city: /^city|town/, state: /^state|^st$/, zip: /zip|postal/,
+    phone: /phone|cell|mobile|tel/, email: /e-?mail/, yardage: /yard|sq\.? ?f|lawn size|size/, notes: /note|comment|memo|remark/, spring: /^spring/, summer: /^summer/, fall: /^(fall|autumn)/, winter: /^winter/, lists: /season|list|schedule/ };
+  var MATERIAL_RULES = { name: /name|item|descr|product|plant|variety|material/, size: /size|grade|gal|container|caliper|height/, supplier: /supplier|vendor|company|brand|source/, category: /categ|type|group|class/,
+    unit: /unit|uom|sold|per$/, cost: /cost|wholesale|net|dealer|you pay|our price/, price: /price|retail|sell|each|charge/ };
+  function impGuess(headers, kind) {
+    var rules = kind === "materials" ? MATERIAL_RULES : CLIENT_RULES, fields = kind === "materials" ? MATERIAL_FIELDS : CLIENT_FIELDS, map = {}, used = {};
+    fields.forEach(function (f) {
       map[f[0]] = -1;
       for (var i = 0; i < headers.length; i++) {
         var h = String(headers[i] || "").toLowerCase().trim();
         if (!h || used[i]) continue;
-        if (f[0] === "address" && /mail/.test(h)) continue;
-        if (f[0] === "name" && (!h || /first|last|file|user/.test(h) || !/name|client|customer|contact|account/.test(h))) continue;
+        if (kind !== "materials") {
+          if (f[0] === "address" && /mail/.test(h)) continue;
+          if (f[0] === "name" && (/first|last|file|user/.test(h) || !/name|client|customer|contact|account/.test(h))) continue;
+        }
         if (rules[f[0]].test(h)) { map[f[0]] = i; used[i] = 1; break; }
       }
     });
@@ -587,8 +638,25 @@
     return d.length === 10 ? d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6) : String(v || "").trim();
   }
   function impYes(v) { return /^(y|yes|x|true|1|✓|✔|✔️|on)$/i.test(String(v || "").trim()); }
+  function impMoney(v) { var n = parseFloat(String(v || "").replace(/[^\d.\-]/g, "")); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : ""; }
+  function impUnit(v) {
+    v = String(v || "").toLowerCase();
+    if (/cu|cubic|yd|yard/.test(v)) return "cuyd"; if (/bag|bale/.test(v)) return "bag"; if (/ft|foot|feet|lin/.test(v)) return "foot"; if (/ton/.test(v)) return "ton"; if (/flat|lot/.test(v)) return "flat";
+    return "each";
+  }
+  function impCat(v) {
+    v = String(v || "").toLowerCase();
+    if (/tree/.test(v)) return "tree"; if (/mulch|bark|soil|compost/.test(v)) return "mulch"; if (/rock|stone|gravel|boulder|pebble|sand/.test(v)) return "rock";
+    if (/tub|irrig|outlet|sprinkl|pipe|drip|valve|hose|light/.test(v)) return "irrigation"; if (/plant|shrub|flower|perennial|grass|bush|annual/.test(v)) return "plant";
+    return v ? "other" : "";
+  }
   function impRecord(row, map) {
     function g(k) { var i = map[k]; return i >= 0 && row[i] !== undefined ? String(row[i]).trim() : ""; }
+    if (imp.kind === "materials") {
+      var mn = g("name"); if (!mn) return null;
+      var price = impMoney(g("price"));
+      return { name: mn.slice(0, 160), size: g("size").slice(0, 80), supplier: g("supplier").slice(0, 80), category: impCat(g("category") || mn), unit: impUnit(g("unit")), cost: impMoney(g("cost")), price: price === "" ? 0 : price };
+    }
     var name = g("name") || [g("first"), g("last")].filter(Boolean).join(" ");
     if (!name) return null;
     var tail = [g("city"), [g("state"), g("zip")].filter(Boolean).join(" ")].filter(Boolean).join(", ");
@@ -601,13 +669,14 @@
     }
     return { name: name.slice(0, 120), phone: impPhone(g("phone")).slice(0, 40), email: g("email").slice(0, 120), address: addr.slice(0, 200), yardage: num(g("yardage").replace(/[^\d.]/g, ""), 0), lists: lists, notes: g("notes").slice(0, 600) };
   }
-  function impKey(n) { return String(n).toLowerCase().replace(/\s+/g, " ").trim(); }
+  function impKey(r) { return String(r.name + (r.size ? "|" + r.size : "")).toLowerCase().replace(/\s+/g, " ").trim(); }
   function impPlan() {
+    var mat = imp.kind === "materials", col = mat ? data.materials : data.clients;
     var sh = imp.sheets[imp.sheet], rows = sh.rows.slice(1), seen = {}, existing = {}, plan = { add: [], merge: [], skip: 0, dup: 0, blank: 0 };
-    data.clients.forEach(function (c) { existing[impKey(c.name)] = c; });
+    col.forEach(function (c) { existing[impKey(c)] = c; });
     rows.forEach(function (r) {
       var rec = impRecord(r, imp.map); if (!rec) { plan.blank++; return; }
-      var k = impKey(rec.name);
+      var k = impKey(rec);
       if (seen[k]) { plan.dup++; return; } seen[k] = 1;
       var ex = existing[k];
       if (!ex) plan.add.push(rec);
@@ -617,51 +686,57 @@
     return plan;
   }
   function impHtml() {
-    var sh = imp.sheets[imp.sheet], headers = sh.rows[0] || [], plan = impPlan();
-    var opts = function (sel) { return '<option value="-1">(none)</option>' + headers.map(function (h, i) { return '<option value="' + i + '"' + (i === sel ? " selected" : "") + ">" + esc(h || "Column " + (i + 1)) + "</option>"; }).join(""); };
+    var mat = imp.kind === "materials", sh = imp.sheets[imp.sheet], headers = sh.rows[0] || [], plan = impPlan(), noun = mat ? ["new item", "new items", "existing item", "existing items"] : ["new client", "new clients", "existing client", "existing clients"];
+    var opts0 = function (sel) { return '<option value="-1">(none)</option>' + headers.map(function (h, i) { return '<option value="' + i + '"' + (i === sel ? " selected" : "") + ">" + esc(h || "Column " + (i + 1)) + "</option>"; }).join(""); };
     var prev = plan.add.concat(plan.merge.map(function (m) { return m.rec; })).slice(0, 5);
-    return '<div class="card" id="impPanel"><h2>Import clients from a spreadsheet or Word file</h2>' +
-      '<p class="muted">The file is read on this computer only. Nothing is uploaded, and the app does not keep the file. When you are done, delete extra copies of the spreadsheet, since it holds your clients\' details.</p>' +
+    return '<div class="card" id="impPanel"><h2>' + (mat ? "Import a price list" : "Import clients from a spreadsheet or Word file") + "</h2>" +
+      '<p class="muted">The file is read on this computer only. Nothing is uploaded, and the app does not keep the file.' + (mat ? "" : " When you are done, delete extra copies of the spreadsheet, since it holds your clients' details.") + "</p>" +
       (imp.sheets.length > 1 ? '<label>Sheet<select data-imp="sheet">' + imp.sheets.map(function (s, i) { return '<option value="' + i + '"' + (i === imp.sheet ? " selected" : "") + ">" + esc(s.name) + "</option>"; }).join("") + "</select></label>" : "") +
       '<p><strong>Match your columns.</strong> The first row is treated as column names.</p><div class="grid">' +
-      IMP_FIELDS.map(function (f) { return "<label>" + esc(f[1]) + '<select data-imp="map" data-field="' + f[0] + '">' + opts(imp.map[f[0]]) + "</select></label>"; }).join("") + "</div>" +
-      '<label>If a client with the same name is already in the app<select data-imp="policy"><option value="fill"' + (imp.policy === "fill" ? " selected" : "") + '>Fill in only the blank details</option><option value="overwrite"' + (imp.policy === "overwrite" ? " selected" : "") + '>Replace with the spreadsheet details</option><option value="skip"' + (imp.policy === "skip" ? " selected" : "") + ">Skip them</option></select></label>" +
-      '<p id="impCount"><strong>' + plural(plan.add.length, "new client", "new clients") + "</strong>, " + plural(plan.merge.length, "existing client", "existing clients") + " updated, " + plan.skip + " skipped" +
+      impFields().map(function (f) { return "<label>" + esc(f[1]) + '<select data-imp="map" data-field="' + f[0] + '">' + opts0(imp.map[f[0]]) + "</select></label>"; }).join("") + "</div>" +
+      '<label>If it is already in the app<select data-imp="policy"><option value="fill"' + (imp.policy === "fill" ? " selected" : "") + '>Fill in only the blank details</option><option value="overwrite"' + (imp.policy === "overwrite" ? " selected" : "") + '>Replace with the file details</option><option value="skip"' + (imp.policy === "skip" ? " selected" : "") + ">Skip them</option></select></label>" +
+      '<p id="impCount"><strong>' + plural(plan.add.length, noun[0], noun[1]) + "</strong>, " + plural(plan.merge.length, noun[2], noun[3]) + " updated, " + plan.skip + " skipped" +
       (plan.dup ? ", " + plan.dup + " repeated in the file" : "") + (plan.blank ? ", " + plan.blank + " rows with no name" : "") + ".</p>" +
-      (prev.length ? '<table class="plain"><tbody>' + prev.map(function (r) { return "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.phone) + "</td><td>" + esc(r.address) + "</td></tr>"; }).join("") + "</tbody></table>" : '<p class="muted">Choose the Name column to see a preview.</p>') +
+      (prev.length ? '<table class="plain"><tbody>' + prev.map(function (r) { return mat ? "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.size) + "</td><td>" + esc(money(r.price)) + " " + esc(unitLabel(r.unit)) + "</td></tr>" : "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.phone) + "</td><td>" + esc(r.address) + "</td></tr>"; }).join("") + "</tbody></table>" : '<p class="muted">Choose the Name column to see a preview.</p>') +
       '<div class="actions"><button type="button" class="btn primary" data-act="impConfirm"' + (plan.add.length + plan.merge.length ? "" : " disabled") + '>Import</button><button type="button" class="btn" data-act="closeForm">Cancel</button></div></div>';
   }
   function impShow() { var w = $("#formWrap"); if (!w) return; ui.form = { kind: "import" }; w.innerHTML = impHtml(); w.scrollIntoView({ block: "start", behavior: "smooth" }); }
-  function impStart() {
+  function impStart(kind) {
     if (locked) return;
     window.ledger.pickClients().then(function (r) {
       if (!r || r.canceled) return;
       if (r.error) { showErr(r.error); return; }
       showErr("");
-      imp = { sheets: r.sheets, sheet: 0, policy: "fill", map: impGuess(r.sheets[0].rows[0] || []) };
+      imp = { kind: kind || "clients", sheets: r.sheets, sheet: 0, policy: "fill" };
+      imp.map = impGuess(r.sheets[0].rows[0] || [], imp.kind);
       impShow();
     }).catch(function () { showErr("Could not read that file."); });
   }
   function impChange(t) {
     if (!imp) return;
-    if (t.dataset.imp === "sheet") { imp.sheet = num(t.value, 0); imp.map = impGuess(imp.sheets[imp.sheet].rows[0] || []); }
+    if (t.dataset.imp === "sheet") { imp.sheet = num(t.value, 0); imp.map = impGuess(imp.sheets[imp.sheet].rows[0] || [], imp.kind); }
     else if (t.dataset.imp === "map") imp.map[t.dataset.field] = num(t.value, -1);
     else if (t.dataset.imp === "policy") imp.policy = t.value;
     impShow();
   }
   function impConfirm() {
     if (!imp) return;
-    var plan = impPlan(), now = Date.now(), over = imp.policy === "overwrite";
-    plan.add.forEach(function (r, i) { r.id = uid("c") + i; r.createdAt = now; data.clients.push(r); });
+    var mat = imp.kind === "materials", plan = impPlan(), now = Date.now(), over = imp.policy === "overwrite";
+    plan.add.forEach(function (r, i) { r.id = uid(mat ? "m" : "c") + i; r.createdAt = now; (mat ? data.materials : data.clients).push(r); });
     plan.merge.forEach(function (m) {
-      ["phone", "email", "address", "notes"].forEach(function (k) { if (m.rec[k] && (over || !m.ex[k])) m.ex[k] = m.rec[k]; });
+      (mat ? ["supplier", "size", "category", "unit"] : ["phone", "email", "address", "notes"]).forEach(function (k) { if (m.rec[k] && (over || !m.ex[k])) m.ex[k] = m.rec[k]; });
+      if (mat) {
+        if (m.rec.price && (over || !m.ex.price)) m.ex.price = m.rec.price;
+        if (m.rec.cost !== "" && (over || m.ex.cost === "" || m.ex.cost === undefined)) m.ex.cost = m.rec.cost;
+        return;
+      }
       if (m.rec.yardage && (over || !m.ex.yardage)) m.ex.yardage = m.rec.yardage;
       m.ex.lists = m.ex.lists || {};
       SEASONS.forEach(function (s) { if (m.rec.lists[s[0]]) m.ex.lists[s[0]] = true; else if (over && imp.map[s[0]] >= 0) m.ex.lists[s[0]] = false; });
     });
     var a = plan.add.length, u = plan.merge.length;
     imp = null; ui.form = null; rebuildIndex(); persist(); render();
-    note("Imported " + plural(a, "new client", "new clients") + (u ? " and updated " + plural(u, "existing client", "existing clients") : "") + ".");
+    note("Imported " + plural(a, mat ? "new item" : "new client", mat ? "new items" : "new clients") + (u ? " and updated " + plural(u, "existing one", "existing ones") : "") + ".");
   }
 
   /* ---------- Services ---------- */
@@ -705,6 +780,53 @@
     ui.form = null; render();
   }
 
+  /* ---------- Materials ---------- */
+  function vMaterials(v) {
+    v.innerHTML = '<div class="tools"><button type="button" class="btn primary" data-act="newMaterial">New material</button>' +
+      '<button type="button" class="btn" data-act="importMaterials">Import price list</button>' +
+      '<input type="search" id="matSearch" placeholder="Search name, size, supplier" aria-label="Search materials" value="' + esc(ui.mq || "") + '">' +
+      '<span class="muted">' + plural(data.materials.length, "material", "materials") + '</span></div>' +
+      '<p class="hint">Plants, trees, mulch, rock, tubing and anything else you buy and sell. Your cost is only for you and never prints on a bill. Prices are copied into a job when you add the material, so changing a price here does not change old jobs.</p>' +
+      '<div id="formWrap"></div><section id="materialList"></section>';
+    fillMaterialList();
+  }
+  function fillMaterialList() {
+    var el = $("#materialList"); if (!el) return;
+    if (!data.materials.length) { el.innerHTML = '<div class="empty"><h2>No materials yet</h2><p>Add the plants and supplies you sell with what you charge. Pick them on a job to bill for the item itself, and add labor as a separate line.</p><button type="button" class="btn primary" data-act="newMaterial">Add your first material</button></div>'; return; }
+    var q = String(ui.mq || "").toLowerCase().trim();
+    var list = data.materials.filter(function (m) { return !q || (matName(m) + " " + (m.supplier || "")).toLowerCase().indexOf(q) !== -1; });
+    el.innerHTML = list.length ? MCATS.map(function (c) {
+      var rows = list.filter(function (m) { return (m.category || "other") === c[0]; }).sort(function (a, b) { return matName(a).localeCompare(matName(b)); });
+      if (!rows.length) return "";
+      return '<h3 class="group-title">' + esc(c[1]) + '</h3><div class="list two">' + rows.map(function (m) {
+        var del = ui.confirm === "material:" + m.id ? '<button type="button" class="btn small danger" data-act="delMaterial">Confirm delete</button>' : '<button type="button" class="btn small" data-act="delMaterial">Delete</button>';
+        var cost = m.cost !== "" && m.cost !== undefined && m.cost !== null ? '<span class="muted">Your cost ' + esc(money(m.cost)) + "</span>" : "";
+        return '<article class="card" data-id="' + esc(m.id) + '"><div class="card-top"><div class="who"><h3>' + esc(matName(m)) + "</h3>" + (m.supplier ? '<p class="sub">' + esc(m.supplier) + "</p>" : "") + '</div><div class="amt"><strong>' + esc(money(m.price)) + "</strong><span>" + esc(unitLabel(m.unit)) + "</span>" + cost + "</div></div>" +
+          '<div class="controls"><span class="spacer"></span><button type="button" class="btn small" data-act="editMaterial">Edit</button>' + del + "</div></article>";
+      }).join("") + "</div>";
+    }).join("") : '<p class="muted">Nothing matches that search.</p>';
+  }
+  function materialFormHtml(id) {
+    var m = id ? (data.materials.filter(function (x) { return x.id === id; })[0] || {}) : {};
+    return '<form class="form" id="materialForm" data-id="' + esc(id || "") + '"><h2>' + (id ? "Edit material" : "New material") + "</h2>" +
+      '<div class="grid"><label>Name (prints on the bill)<input type="text" id="mf-name" required maxlength="160" placeholder="Hydrangea" value="' + esc(m.name || "") + '"></label>' +
+      '<label>Size or grade (optional)<input type="text" id="mf-size" maxlength="80" placeholder="3 gal" value="' + esc(m.size || "") + '"></label>' +
+      '<label>Supplier (optional)<input type="text" id="mf-supplier" maxlength="80" value="' + esc(m.supplier || "") + '"></label>' +
+      '<label>Category<select id="mf-cat">' + opts(MCATS, m.category || "plant") + "</select></label>" +
+      '<label>Sold by<select id="mf-unit">' + opts(MUNITS, m.unit || "each") + "</select></label>" +
+      '<label>Price you charge ($)<input type="number" id="mf-price" min="0" step="0.01" required value="' + esc(m.price === undefined ? "" : m.price) + '"></label>' +
+      '<label>Your cost ($, optional, never printed)<input type="number" id="mf-cost" min="0" step="0.01" value="' + esc(m.cost === undefined || m.cost === null ? "" : m.cost) + '"></label></div>' +
+      '<div class="actions"><button type="submit" class="btn primary">Save material</button><button type="button" class="btn" data-act="closeForm">Cancel</button></div></form>';
+  }
+  function submitMaterial(form) {
+    var name = $("#mf-name").value.trim(); if (!name) return;
+    var id = form.dataset.id || uid("m"), ex = data.materials.filter(function (x) { return x.id === id; })[0] || {}, cost = $("#mf-cost").value;
+    if (!locked) showErr("");
+    upsert("materials", { id: id, name: name, size: $("#mf-size").value.trim(), supplier: $("#mf-supplier").value.trim(), category: $("#mf-cat").value, unit: $("#mf-unit").value,
+      price: num($("#mf-price").value, 0), cost: cost === "" ? "" : num(cost, 0), createdAt: ex.createdAt || Date.now() });
+    ui.form = null; render();
+  }
+
   /* ---------- Settings ---------- */
   function vSettings(v) {
     v.innerHTML = '<form class="form" id="settingsForm"><h2>Business and invoice</h2><p class="hint">These print on every invoice.</p>' +
@@ -718,6 +840,7 @@
       '<label>Next estimate number<input type="number" data-setting="nextEstimateNo" min="1" step="1" value="' + esc(nextNo("estimate")) + '"></label>' +
       '<label>Estimates are valid for (days)<input type="number" data-setting="estimateDays" min="1" step="1" value="' + esc(st("estimateDays")) + '"></label>' +
       '<label>Message on estimates<textarea rows="2" data-setting="estimateNote" maxlength="300">' + esc(sv("estimateNote")) + '</textarea></label>' +
+      '<label>Default hourly labor rate ($)<input type="number" data-setting="hourlyRate" min="0" step="0.01" value="' + esc(st("hourlyRate")) + '"></label>' +
       '<label>Payment due after (days)<input type="number" data-setting="dueDays" min="0" step="1" value="' + esc(st("dueDays")) + '"></label>' +
       '<label>Invoice logo (PNG or JPG)<input type="file" id="logoFile" accept="image/png,image/jpeg"></label></div>' +
       '<div class="actions"><button type="button" class="btn" data-act="resetLogo">Use the Lima\'s logo</button></div>' +
@@ -759,9 +882,15 @@
     kind = kind === "estimate" ? "estimate" : "invoice";
     var c = clientById(j.clientId) || {}, est = kind === "estimate", date = est ? today() : invoiceDate(j);
     var items = hasItems(j) ? j.items : [{ name: j.description || "Job", qty: 1, rate: Number(j.amount) || 0, unit: "flat" }];
-    var lines = items.map(function (i) {
+    var lines = [];
+    items.forEach(function (i) {
       var q = Number(i.qty) || 0, r = Number(i.rate) || 0;
-      return { date: est ? "" : date, name: i.name, detail: i.detail || "", qty: q, unit: i.unit || "", rate: r, amount: r2(q * r) };
+      var ln = { date: est ? "" : date, name: i.name, detail: i.detail || "", qty: q, unit: i.unit || "", rate: r, amount: r2(q * r), kind: i.kind || "service" };
+      var prev = lines[lines.length - 1];
+      if (j.billStyle === "combined" && ln.kind !== "material" && prev && prev.kind === "material") {
+        prev.amount = r2(prev.amount + ln.amount); prev.combined = true;
+        prev.detail = [prev.detail, [ln.name, ln.detail].filter(Boolean).join(" - ")].filter(Boolean).join("; ");
+      } else lines.push(ln);
     });
     var total = r2(lines.reduce(function (s, l) { return s + l.amount; }, 0));
     var paid = est ? 0 : (j.billStatus === "paid" ? total : (j.billStatus === "partial" ? (Number(j.amountPaid) || 0) : 0));
@@ -818,7 +947,7 @@
     var b = inv.billTo || {}, bal = r2(inv.total - (inv.paid || 0));
     var addr = addrLines(b.address).map(function (l) { return "<span>" + esc(l) + "</span>"; }).join("");
     var rows = inv.lines.map(function (l) {
-      return "<tr>" + (est ? "" : '<td class="d">' + esc(l.date ? fmtDateLong(l.date) : "") + "</td>") + '<td class="q">' + esc(qtyFmt(l.qty) + (UNIT_SHORT[l.unit] || "")) + "</td><td>" + esc(l.name) + (l.detail ? '<span class="inv-detail">' + esc(l.detail) + "</span>" : "") + '</td><td class="r">' + esc(money(l.rate)) + '</td><td class="r">' + esc(money(l.amount)) + "</td></tr>";
+      return "<tr>" + (est ? "" : '<td class="d">' + esc(l.date ? fmtDateLong(l.date) : "") + "</td>") + '<td class="q">' + esc(qtyFmt(l.qty) + (UNIT_SHORT[l.unit] || "")) + "</td><td>" + esc(l.name) + (l.detail ? '<span class="inv-detail">' + esc(l.detail) + "</span>" : "") + '</td><td class="r">' + esc(l.combined ? "" : money(l.rate)) + '</td><td class="r">' + esc(money(l.amount)) + "</td></tr>";
     }).join("");
     var site = inv.site ? '<tr class="site">' + (est ? "<td></td>" : "<td></td><td></td>") + '<td colspan="3">Service location: ' + esc(inv.site) + "</td></tr>" : "";
     var noteText = est ? String(sv("estimateNote")).trim() : String(st("invoiceNote") || "").trim();
@@ -987,7 +1116,7 @@
   function showForm(kind, id, prefill) {
     ui.form = { kind: kind, id: id || null };
     var w = $("#formWrap"); if (!w) return;
-    w.innerHTML = kind === "job" ? jobFormHtml(id, prefill) : kind === "client" ? clientFormHtml(id) : serviceFormHtml(id);
+    w.innerHTML = kind === "job" ? jobFormHtml(id, prefill) : kind === "client" ? clientFormHtml(id) : kind === "material" ? materialFormHtml(id) : serviceFormHtml(id);
     if (kind === "job") { updateTotals(); refreshClientHint(); syncPaid(); }
     w.scrollIntoView({ block: "start", behavior: "smooth" });
     var first = $("input:not([type=hidden])", w); if (first) first.focus({ preventScroll: true });
@@ -1008,17 +1137,20 @@
     if (t.dataset.filter) { ui.jobFilter = t.dataset.filter; ui.jobLimit = PAGE; fillJobChips(); fillJobList(); return; }
     if (t.dataset.cfilter) { ui.cFilter = t.dataset.cfilter; ui.clientLimit = PAGE; ui.batch = false; fillClientChips(); fillBatch(); fillClientList(); return; }
     var act = t.dataset.act, id = rowId(t), j = id ? jobById(id) : null;
-    if (act !== "delJob" && act !== "delClient" && act !== "delService" && ui.confirm) { ui.confirm = null; }
+    if (act !== "delJob" && act !== "delClient" && act !== "delService" && act !== "delMaterial" && ui.confirm) { ui.confirm = null; }
     switch (act) {
       case "newJob": ui.form = null; if (ui.tab !== "jobs") go("jobs"); showForm("job", null, null); break;
       case "editJob": showForm("job", id, null); break;
       case "repeat": if (j) { showForm("job", null, repeatPrefill(j)); } break;
       case "jobFor": { var c = clientById(id); ui.tab = "jobs"; render(); showForm("job", null, c ? { clientName: c.name, clientId: c.id, address: c.address } : null); break; }
       case "newClient": showForm("client", null); break;
-      case "importClients": impStart(); break;
+      case "importClients": impStart("clients"); break;
       case "impConfirm": impConfirm(); break;
       case "editClient": showForm("client", id); break;
       case "newService": showForm("service", null); break;
+      case "newMaterial": showForm("material", null); break;
+      case "editMaterial": showForm("material", id); break;
+      case "importMaterials": impStart("materials"); break;
       case "editService": showForm("service", id); break;
       case "closeForm": closeForm(); break;
       case "addItem": { var box = $("#jf-items"); if (box) { box.insertAdjacentHTML("beforeend", itemRow({})); var last = $$(".it-name", box).pop(); if (last) last.focus(); } break; }
@@ -1044,9 +1176,9 @@
       case "moreInv": ui.invLimit += PAGE; fillInvList(); break;
       case "clientInv": { var cc = clientById(id); ui.iq = cc ? cc.name : ""; ui.invLimit = PAGE; go("invoices"); break; }
       case "resetLogo": data.settings.logoData = ""; persist(); note("Using the Lima's logo."); break;
-      case "delJob": case "delClient": case "delService": {
-        var key = (act === "delJob" ? "job:" : act === "delClient" ? "client:" : "service:") + id;
-        if (ui.confirm === key) { ui.confirm = null; removeFrom(act === "delJob" ? "jobs" : act === "delClient" ? "clients" : "services", id); render(); }
+      case "delJob": case "delClient": case "delService": case "delMaterial": {
+        var key = (act === "delJob" ? "job:" : act === "delClient" ? "client:" : act === "delMaterial" ? "material:" : "service:") + id;
+        if (ui.confirm === key) { ui.confirm = null; removeFrom(act === "delJob" ? "jobs" : act === "delClient" ? "clients" : act === "delMaterial" ? "materials" : "services", id); render(); }
         else { ui.confirm = key; render(); }
         break;
       }
@@ -1064,7 +1196,7 @@
         window.ledger.importData().then(function (r) {
           if (!r || r.canceled) return;
           if (r.error) { showErr(r.error); return; }
-          ["jobs", "clients", "services", "invoices"].forEach(function (col) {
+          ["jobs", "clients", "services", "materials", "invoices"].forEach(function (col) {
             var by = {}; data[col].forEach(function (x) { by[x.id] = x; }); (r.data[col] || []).forEach(function (x) { by[x.id] = x; });
             data[col] = Object.keys(by).map(function (k) { return by[k]; });
           });
@@ -1081,6 +1213,7 @@
     if (t.id === "jobSearch") { ui.jq = t.value; ui.jobLimit = PAGE; fillJobList(); }
     else if (t.id === "invSearch") { ui.iq = t.value; ui.invLimit = PAGE; fillInvList(); }
     else if (t.id === "invKind") { ui.ik = t.value; ui.invLimit = PAGE; fillInvList(); }
+    else if (t.id === "matSearch") { ui.mq = t.value; fillMaterialList(); }
     else if (t.id === "clientSearch") { ui.cq = t.value; ui.clientLimit = PAGE; fillClientList(); }
     else if (t.id === "jf-client") refreshClientHint();
     else if (t.classList.contains("it-qty")) { var r = t.closest(".item-row"); if (r) r.dataset.qtyauto = ""; updateTotals(); }
@@ -1092,6 +1225,7 @@
     else if (t.id === "jobTypeSel") { ui.jobType = t.value; ui.jobLimit = PAGE; fillJobList(); }
     else if (t.id === "jobSort") { ui.sort = t.value; ui.jobLimit = PAGE; fillJobList(); }
     else if (t.id === "jf-client") onClientChosen();
+    else if (t.classList.contains("it-kind")) onKind(t.closest(".item-row"));
     else if (t.classList.contains("it-name")) applyService(t.closest(".item-row"));
     else if (t.id === "jf-billStatus") {
       syncPaid();
@@ -1126,6 +1260,7 @@
     if (f.id === "jobForm") submitJob(f);
     else if (f.id === "clientForm") submitClient(f);
     else if (f.id === "serviceForm") submitService(f);
+    else if (f.id === "materialForm") submitMaterial(f);
     else if (f.id === "batchForm") runBatch(f);
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && ui.invoice) closeInvoice(); });
@@ -1133,7 +1268,7 @@
   /* ---------- start ---------- */
   function norm(d) {
     d = d || {};
-    return { jobs: Array.isArray(d.jobs) ? d.jobs : [], clients: Array.isArray(d.clients) ? d.clients : [], services: Array.isArray(d.services) ? d.services : [], invoices: Array.isArray(d.invoices) ? d.invoices : [], settings: d.settings && typeof d.settings === "object" ? d.settings : {} };
+    return { jobs: Array.isArray(d.jobs) ? d.jobs : [], clients: Array.isArray(d.clients) ? d.clients : [], services: Array.isArray(d.services) ? d.services : [], materials: Array.isArray(d.materials) ? d.materials : [], invoices: Array.isArray(d.invoices) ? d.invoices : [], settings: d.settings && typeof d.settings === "object" ? d.settings : {} };
   }
   render();
   window.ledger.load().then(function (d) {

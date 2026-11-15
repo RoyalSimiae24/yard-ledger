@@ -30,6 +30,7 @@ function normalize(x) {
     jobs: Array.isArray(x.jobs) ? x.jobs : [],
     clients: Array.isArray(x.clients) ? x.clients : [],
     services: Array.isArray(x.services) ? x.services : [],
+    materials: Array.isArray(x.materials) ? x.materials : [],
     invoices: Array.isArray(x.invoices) ? x.invoices : [],
     settings: isPlainObject(x.settings) ? x.settings : {},
   };
@@ -38,6 +39,7 @@ function normalize(x) {
 function validData(d) {
   if (!isPlainObject(d)) return false;
   const lists = [d.jobs, d.clients, d.services, d.invoices];
+  if (d.materials !== undefined) lists.push(d.materials);
   for (const l of lists) {
     if (!Array.isArray(l)) return false;
     for (const it of l) {

@@ -124,6 +124,9 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 
 .items-head, .item-row { display: grid; grid-template-columns: minmax(0, 3fr) 80px minmax(0, 1.2fr) 90px 84px; gap: 8px; align-items: start; }
 .items-head { font-size: 12px; font-weight: 600; color: var(--muted); }
+.item-row .it-top { display: flex; gap: 6px; min-width: 0; }
+.item-row .it-top .it-kind { flex: 0 0 8.5em; width: 8.5em; }
+.item-row .it-top .it-name { flex: 1 1 0; min-width: 0; }
 .item-row .it-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .item-row .it-detail { font-size: 13px; }
 .inv-detail { display: block; font-size: 9pt; color: var(--soft); }
