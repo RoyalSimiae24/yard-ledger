@@ -142,9 +142,9 @@ app.whenReady().then(() => {
   // Client import: the file is read here, in the app, and nothing is sent anywhere. Only rows go to the window; the file path is not kept.
   ipcMain.handle("clients:pick", async () => {
     const res = await dialog.showOpenDialog(win, {
-      title: "Choose your client spreadsheet",
+      title: "Choose your client list",
       properties: ["openFile"],
-      filters: [{ name: "Spreadsheet", extensions: ["xlsx", "csv", "txt"] }],
+      filters: [{ name: "Spreadsheet", extensions: ["xlsx", "csv", "docx", "txt"] }],
     });
     if (res.canceled || !res.filePaths.length) return { canceled: true };
     try {

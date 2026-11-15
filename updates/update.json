@@ -1,1 +1,1 @@
-{"version": "2.5.1", "sha256": "f03e64122b001030bc4f91df1406fadfffc58ffc392bb80938873c2df5b2a3d2", "notes": "Add details to each bill line, like which plant."}
+{"version": "2.5.2", "sha256": "f68bda0f4d15cbcbb845e5168eebc41fa06f264f71f75cc6b9fe0c02e6f19644", "notes": "Import your client list from a Word file too."}

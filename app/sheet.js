@@ -112,6 +112,35 @@ function parseXlsx(buf) {
   return sheets;
 }
 
+
+// Word documents: every table becomes a "sheet"; if there are none, lines that use tabs or semicolons are read as rows.
+function parseDocx(buf) {
+  const get = readZip(buf), x = get("word/document.xml"); if (!x) throw new Error("zip");
+  const xml = x.toString("utf8");
+  const para = (p) => { let out = "", m; const re = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\s*\/>|<w:br\s*\/>/g; while ((m = re.exec(p))) out += m[1] !== undefined ? decodeEntities(m[1]) : (m[0].indexOf("tab") > 0 ? "\t" : "\n"); return out; };
+  const paras = (s) => (s.match(/<w:p[\s>][\s\S]*?<\/w:p>/g) || []).map(para);
+  const sheets = [];
+  const tbls = xml.match(/<w:tbl>[\s\S]*?<\/w:tbl>/g) || [];
+  tbls.slice(0, MAX_SHEETS).forEach((t, n) => {
+    const rows = [];
+    (t.match(/<w:tr[\s>][\s\S]*?<\/w:tr>/g) || []).slice(0, MAX_ROWS).forEach((r) => {
+      const cells = (r.match(/<w:tc>[\s\S]*?<\/w:tc>/g) || []).slice(0, MAX_COLS).map((c) => clean(paras(c).map((p) => p.trim()).filter(Boolean).join(", ")));
+      if (cells.some((c) => c !== "")) rows.push(cells);
+    });
+    if (rows.length > 1) sheets.push({ name: "Table " + (n + 1), rows });
+  });
+  if (!sheets.length) {
+    const rows = [];
+    paras(xml.replace(/<w:tbl>[\s\S]*?<\/w:tbl>/g, "")).forEach((p) => {
+      if (rows.length >= MAX_ROWS) return;
+      const parts = p.indexOf("\t") >= 0 ? p.split("\t") : (p.indexOf(";") >= 0 ? p.split(";") : null);
+      if (parts && parts.length > 1) rows.push(parts.slice(0, MAX_COLS).map((c) => clean(c.trim())));
+    });
+    if (rows.length > 1) sheets.push({ name: "Text", rows });
+  }
+  return sheets;
+}
+
 // Returns { sheets: [{ name, rows }] } or throws an Error whose message is friendly.
 function parseSheet(buf, fileName) {
   const ext = String(fileName || "").toLowerCase().replace(/^.*\./, "");
@@ -120,7 +149,9 @@ function parseSheet(buf, fileName) {
   const isZip = buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b;
   try {
     if (isZip) {
-      const sheets = parseXlsx(buf).filter((s) => s.rows.length);
+      const isDoc = !!readZip(buf)("word/document.xml");
+      const sheets = (isDoc ? parseDocx(buf) : parseXlsx(buf)).filter((s) => s.rows.length);
+      if (!sheets.length && isDoc) throw new Error("nodoc");
       if (!sheets.length) throw new Error("empty");
       return { sheets };
     }
@@ -129,8 +160,9 @@ function parseSheet(buf, fileName) {
     if (!rows.length) throw new Error("empty");
     return { sheets: [{ name: "Sheet", rows }] };
   } catch (e) {
+    if (e && e.message === "nodoc") throw new Error("I could not find a table in that Word file. In Word, the client list needs to be in a table with one client per row, or lines separated by tabs.");
     if (e && e.message === "empty") throw new Error("That file has no rows in it.");
-    throw new Error("Could not read that file. Use an Excel Workbook (.xlsx) or a CSV file.");
+    throw new Error("Could not read that file. Use an Excel (.xlsx), Word (.docx) or CSV file.");
   }
 }
 

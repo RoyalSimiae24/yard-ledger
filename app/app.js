@@ -472,7 +472,7 @@
   }
   function vClients(v) {
     v.innerHTML =
-      '<div class="tools"><button type="button" class="btn primary" data-act="newClient">New client</button><button type="button" class="btn" data-act="importClients">Import from spreadsheet</button>' +
+      '<div class="tools"><button type="button" class="btn primary" data-act="newClient">New client</button><button type="button" class="btn" data-act="importClients">Import client list</button>' +
       '<input type="search" id="clientSearch" placeholder="Search name, phone, address" aria-label="Search clients" value="' + esc(ui.cq) + '">' +
       '<span class="muted">' + plural(data.clients.length, "client", "clients") + "</span></div>" +
       '<div class="chips" id="clientChips"></div><div id="formWrap"></div><div id="batchWrap"></div><section class="list two" id="clientList"></section>';
@@ -620,7 +620,7 @@
     var sh = imp.sheets[imp.sheet], headers = sh.rows[0] || [], plan = impPlan();
     var opts = function (sel) { return '<option value="-1">(none)</option>' + headers.map(function (h, i) { return '<option value="' + i + '"' + (i === sel ? " selected" : "") + ">" + esc(h || "Column " + (i + 1)) + "</option>"; }).join(""); };
     var prev = plan.add.concat(plan.merge.map(function (m) { return m.rec; })).slice(0, 5);
-    return '<div class="card" id="impPanel"><h2>Import clients from a spreadsheet</h2>' +
+    return '<div class="card" id="impPanel"><h2>Import clients from a spreadsheet or Word file</h2>' +
       '<p class="muted">The file is read on this computer only. Nothing is uploaded, and the app does not keep the file. When you are done, delete extra copies of the spreadsheet, since it holds your clients\' details.</p>' +
       (imp.sheets.length > 1 ? '<label>Sheet<select data-imp="sheet">' + imp.sheets.map(function (s, i) { return '<option value="' + i + '"' + (i === imp.sheet ? " selected" : "") + ">" + esc(s.name) + "</option>"; }).join("") + "</select></label>" : "") +
       '<p><strong>Match your columns.</strong> The first row is treated as column names.</p><div class="grid">' +
