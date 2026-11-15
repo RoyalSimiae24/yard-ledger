@@ -189,7 +189,7 @@ app.whenReady().then(() => {
   });
 
   /* ---------- updates from GitHub ---------- */
-  const UPDATE_BASE = "https://raw.githubusercontent.com/RoyalSimiae24/yard-ledger/main/updates/";
+  const UPDATE_BASE = process.env.YARD_LEDGER_TEST_UPDATE_BASE || "https://raw.githubusercontent.com/RoyalSimiae24/yard-ledger/main/updates/";
   function cmpVer(a, b) {
     const x = String(a).split(".").map(Number), y = String(b).split(".").map(Number);
     for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0) ? 1 : -1; }
@@ -233,7 +233,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle("update:install", async () => {
     try {
-      if (!app.isPackaged) return { error: "Updates only install in the packaged app." };
+      if (!app.isPackaged && !process.env.YARD_LEDGER_TEST_UPDATE_BASE) return { error: "Updates only install in the packaged app." };
       const m = await readUpdate();
       if (cmpVer(m.version, VERSION) <= 0) return { error: "Already up to date." };
       // Never retry the same version in a loop: two tries, then wait for a human.
