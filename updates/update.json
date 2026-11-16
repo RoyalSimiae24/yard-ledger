@@ -1,1 +1,1 @@
-{"version": "2.6.1", "sha256": "65fe4b6e325191385858a1cfb895772f059303aa4c359d6c7a15ebb0052acd71", "notes": "Combine or separate switch right on the bill, and no more 'Item' labels."}
+{"version": "2.7.0", "sha256": "116b7e6d36e52102bc09d04e3822c8744cac762142f782e12f056e184a75bbdd", "notes": "Fold any line into the one above, a Parts and Labor bill with subtotals, and a printable day sheet."}

@@ -1,7 +1,7 @@
 {
   "name": "yard-ledger",
   "productName": "Yard Ledger",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "description": "Track jobs, clients, prices, invoices and payments for a landscaping business.",
   "main": "main.js",
   "private": true,

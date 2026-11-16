@@ -128,6 +128,8 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .item-row .it-top .it-kind { flex: 0 0 8.5em; width: 8.5em; }
 .item-row .it-top .it-name { flex: 1 1 0; min-width: 0; }
 .item-row .it-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.item-row .it-fold { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.item-row .it-fold input { width: auto; margin: 0; }
 .item-row .it-detail { font-size: 13px; }
 .inv-detail { display: block; font-size: 9pt; color: var(--soft); }
 .item-row .it-unit { font-size: 12px; color: var(--muted); }
@@ -212,7 +214,25 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .inv-table .d { white-space: nowrap; width: 0.9in; }
 .inv-table .q { width: 0.8in; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .inv-table .grp td { padding: 14px 6px 4px; font-weight: 600; color: var(--green); border-bottom: 1px solid var(--rule); }
+.inv-table .sub td { color: var(--ink); font-weight: 600; border-bottom: 1px solid var(--ink); padding-top: 5px; }
 .inv-table tr { break-inside: avoid; }
+.inv-sheet.ds { padding-top: 0.45in; }
+.ds + .ds { margin-top: 24px; }
+.ds-title { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--ink); padding-bottom: 6px; margin-bottom: 0.12in; }
+.ds-title b { font-size: 13pt; } .ds-title span, .ds-head span { display: block; font-size: 9pt; color: var(--soft); letter-spacing: 0.08em; }
+.ds-r { text-align: right; }
+.ds-job { border: 1px solid var(--ink); padding: 8px 10px; margin-bottom: 0.14in; break-inside: avoid; }
+.ds-head { display: flex; justify-content: space-between; gap: 12px; }
+.ds-plan { margin: 4px 0 6px; font-size: 9.5pt; color: var(--soft); }
+.ds-mat { width: 100%; border-collapse: collapse; font-size: 9pt; }
+.ds-mat th { text-align: left; font-weight: 600; font-size: 8pt; letter-spacing: 0.05em; border-bottom: 1px solid var(--ink); padding: 2px 4px; }
+.ds-mat td { height: 0.24in; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); } .ds-mat td:last-child { border-right: 0; }
+.ds-mat th:nth-child(2), .ds-mat td:nth-child(2) { width: 0.7in; } .ds-mat th:nth-child(3), .ds-mat td:nth-child(3) { width: 1.7in; }
+.ds-row { display: flex; gap: 18px; margin-top: 8px; font-size: 9.5pt; align-items: flex-end; }
+.ds-row span:not(:last-child) { flex: 1; display: flex; gap: 6px; align-items: flex-end; } .ds-row i { flex: 1; border-bottom: 1px solid var(--ink); height: 1em; }
+.ds-notes { margin-top: 8px; font-size: 8.5pt; color: var(--soft); } .ds-line { border-bottom: 1px solid var(--rule); height: 0.25in; }
+.ds-foot { margin: auto 0 0; padding-top: 4px; text-align: center; font-size: 9pt; color: var(--soft); }
+.inv-date { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
 .inv-table .site td { color: var(--soft); font-size: 9pt; border-bottom: 0; padding-top: 4px; }
 .inv-sum { margin: 0.2in 0 0 auto; width: 2.9in; font-variant-numeric: tabular-nums; }
 .inv-sum div { display: flex; justify-content: space-between; padding: 3px 6px; }
@@ -245,6 +265,7 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
   .no-print { display: none !important; }
   .inv-sheet { zoom: 1 !important; box-shadow: none; margin: 0; width: 8.5in; min-height: 10.97in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .inv-fold { display: block; }
+  .inv-sheet + .inv-sheet { break-before: page; margin-top: 0 !important; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>

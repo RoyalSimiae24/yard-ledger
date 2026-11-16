@@ -311,7 +311,7 @@
   }
   function vJobs(v) {
     v.innerHTML =
-      '<div class="tools"><button type="button" class="btn primary" data-act="newJob">New job</button>' +
+      '<div class="tools"><button type="button" class="btn primary" data-act="newJob">New job</button><button type="button" class="btn" data-act="daySheet">Day sheet</button>' +
       '<input type="search" id="jobSearch" placeholder="Search client, address or service" aria-label="Search jobs" value="' + esc(ui.jq) + '">' +
       '<select id="jobTypeSel" aria-label="Job type"><option value="all">All job types</option>' + opts(TYPES, ui.jobType) + "</select>" +
       '<select id="jobSort" aria-label="Sort jobs">' + opts([["newest", "Newest first"], ["scheduled", "Scheduled date"], ["due", "Payment due date"], ["client", "Client A to Z"], ["amount", "Largest amount"]], ui.sort) + "</select></div>" +
@@ -340,7 +340,7 @@
     it = it || {};
     return '<div class="item-row" data-unit="' + esc(it.unit || "") + '" data-sid="' + esc(it.serviceId || "") + '" data-mid="' + esc(it.materialId || "") + '" data-cost="' + esc(it.cost === undefined || it.cost === "" ? "" : it.cost) + '">' +
       '<div class="it-main"><div class="it-top"><select class="it-kind" aria-label="Kind of line">' + opts(KINDS, it.kind || "service") + '</select><input class="it-name" type="text" list="serviceNames" placeholder="Service or shortcut, e.g. CG" value="' + esc(it.name || "") + '" aria-label="Service, material or shortcut"></div>' +
-      '<input class="it-detail" type="text" maxlength="200" placeholder="Details for the bill, e.g. Hydrangea, back flower bed" value="' + esc(it.detail || "") + '" aria-label="Details shown on the bill"></div>' +
+      '<input class="it-detail" type="text" maxlength="200" placeholder="Details for the bill, e.g. Hydrangea, back flower bed" value="' + esc(it.detail || "") + '" aria-label="Details shown on the bill"><label class="it-fold"><input type="checkbox" class="it-foldc"' + (it.fold ? " checked" : "") + '> Fold into the line above on a Combined bill</label></div>' +
       '<input class="it-qty" type="number" min="0" step="0.01" value="' + (it.qty === undefined || it.qty === "" ? "" : esc(it.qty)) + '" aria-label="Quantity">' +
       '<div class="price-cell"><input class="it-rate" type="number" min="0" step="0.01" value="' + (it.rate === undefined || it.rate === "" ? "" : esc(it.rate)) + '" aria-label="Price"><span class="it-unit">' + esc(unitLabel(it.unit)) + "</span></div>" +
       '<span class="it-total"></span><button type="button" class="btn small" data-act="rmItem">Remove</button></div>';
@@ -363,8 +363,8 @@
       '<div id="jf-items">' + items.map(itemRow).join("") + "</div></div>" +
       '<div class="actions"><button type="button" class="btn small" data-act="addItem">Add another line</button></div>' +
       '<div class="total-line"><span>Total</span><strong id="jf-total">$0.00</strong></div>' +
-      '<label>On the bill<select id="jf-style">' + opts([["separate", "Show materials and labor as separate lines"], ["combined", "Combine each material with the labor under it"]], j.billStyle || "separate") + "</select></label>" +
-      '<p class="hint">Combined: list a material, then its labor lines right below it. The bill shows one price for the material installed, and the hourly rate and labor lines are not shown.</p>' +
+      '<label>On the bill<select id="jf-style">' + opts([["separate", "Show materials and labor as separate lines"], ["combined", "Combine lines (a material with its labor, or any line marked Fold)"], ["grouped", "Materials and Labor sections with subtotals"]], j.billStyle || "separate") + "</select></label>" +
+      '<p class="hint">Combined: a material absorbs the labor lines listed right under it, and any line marked Fold joins the line above it. The bill shows one price with the labor named in small text. Parts and labor: two sections with a subtotal for each.</p>' +
       '<label>Notes<textarea id="jf-notes" maxlength="600" placeholder="Gate code, materials, anything to remember">' + esc(notes) + "</textarea></label>" +
       '<div class="grid"><label>Job status<select id="jf-jobStatus">' + opts(JOB, j.jobStatus || "todo") + "</select></label>" +
       '<label>Payment status<select id="jf-billStatus">' + opts(BILL, j.billStatus || "unbilled") + "</select></label>" +
@@ -445,7 +445,7 @@
   }
   function collectItems() {
     return $$("#jf-items .item-row").map(function (r) {
-      return { name: $(".it-name", r).value.trim(), qty: num($(".it-qty", r).value, 0), rate: num($(".it-rate", r).value, 0), unit: r.dataset.unit || "", serviceId: r.dataset.sid || "", detail: $(".it-detail", r).value.trim(), kind: $(".it-kind", r).value, materialId: r.dataset.mid || "", cost: r.dataset.cost === "" || r.dataset.cost === undefined ? "" : num(r.dataset.cost, 0) };
+      return { name: $(".it-name", r).value.trim(), qty: num($(".it-qty", r).value, 0), rate: num($(".it-rate", r).value, 0), unit: r.dataset.unit || "", serviceId: r.dataset.sid || "", detail: $(".it-detail", r).value.trim(), fold: !!$(".it-foldc", r).checked, kind: $(".it-kind", r).value, materialId: r.dataset.mid || "", cost: r.dataset.cost === "" || r.dataset.cost === undefined ? "" : num(r.dataset.cost, 0) };
     }).filter(function (i) { return i.name || i.qty || i.rate; }).map(function (i) { if (!i.name) i.name = i.kind === "material" ? "Materials" : "Labor"; return i; });
   }
   function billPatch(j, v) {
@@ -889,7 +889,7 @@
       var ln = { date: est ? "" : date, name: (!i.name || i.name === "Item") ? (i.kind === "material" ? "Materials" : "Labor") : i.name, detail: i.detail || "", qty: q, unit: i.unit || "", rate: r, amount: r2(q * r), kind: i.kind || "service" };
       ln.anchor = ln.kind === "material" || (ln.kind === "service" && !i.serviceId && i.unit !== "hour");
       var prev = lines[lines.length - 1];
-      if (style === "combined" && prev && prev.anchor && !(ln.kind === "material" || (ln.kind === "service" && !i.serviceId && i.unit !== "hour"))) {
+      if (style === "combined" && prev && (i.fold || (prev.anchor && !ln.anchor))) {
         prev.amount = r2(prev.amount + ln.amount); prev.combined = true;
         prev.detail = [prev.detail, [ln.name, ln.detail].filter(Boolean).join(" - ")].filter(Boolean).join("; ");
       } else lines.push(ln);
@@ -899,7 +899,7 @@
     var mail = c.address || j.address || "";
     var d = { kind: kind, jobId: j.id, clientId: j.clientId || "", date: date,
       billTo: { name: cname(j), address: mail, phone: c.phone || "", email: c.email || "" },
-      site: j.address && j.address !== mail ? j.address : "", lines: lines, total: total, paid: paid, voided: false };
+      site: j.address && j.address !== mail ? j.address : "", style: style === "combined" || style === "grouped" ? style : "separate", lines: lines, total: total, paid: paid, voided: false };
     if (est) d.validUntil = addDays(date, num(st("estimateDays"), 30));
     else d.dueDate = j.dueDate || addDays(today(), num(st("dueDays"), 14));
     return d;
@@ -939,25 +939,55 @@
       '<div class="inv-sheet">' + bizHeadHtml() + '<div class="inv-mid" style="height:auto;margin-top:0.35in"><div class="inv-to"></div><div class="inv-meta"><h1>PRICE LIST</h1><dl><dt>As of</dt><dd>' + esc(fmtDateLong(today())) + "</dd></dl></div></div>" +
       '<table class="inv-table"><thead><tr>' + (codes ? "<th>Shortcut</th>" : "") + '<th>Service</th><th class="r">Priced</th><th class="r">Price</th></tr></thead>' + body + "</table>" + bizFootHtml() + "</div>";
   }
+  /* ---------- Day sheet: a printed page for the owner to fill in during the day ---------- */
+  function renderDaySheet() {
+    var layer = $("#invoiceLayer"), s = ui.invoice, date = s.date || today();
+    var jobs = data.jobs.filter(function (j) { return j.scheduled === date; });
+    var blank = !jobs.length, lines = function (n) { var o = ""; for (var i = 0; i < n; i++) o += '<div class="ds-line"></div>'; return o; };
+    var blocks = (blank ? [{}, {}, {}] : jobs).map(function (j) {
+      var c = clientById(j.clientId) || {}, planned = hasItems(j) ? j.items.map(function (i) { return esc(i.name) + (i.detail ? " (" + esc(i.detail) + ")" : ""); }).join(", ") : esc(j.description || "");
+      return '<div class="ds-job"><div class="ds-head"><div><b>' + (blank ? "Client: ______________________" : esc(cname(j))) + "</b>" + (j.address ? "<span>" + esc(j.address) + "</span>" : "") + "</div><div class=\"ds-r\">" + (c.phone ? esc(c.phone) : "") + (j.type ? "<span>" + esc(lookup(TYPES, j.type)) + "</span>" : "") + "</div></div>" +
+        (planned ? '<p class="ds-plan"><u>Planned</u> ' + planned + "</p>" : "") +
+        '<table class="ds-mat"><thead><tr><th>Materials used (what and which kind)</th><th>Qty</th><th>Supplier or part</th></tr></thead><tbody>' + '<tr><td></td><td></td><td></td></tr>'.repeat(4) + "</tbody></table>" +
+        '<div class="ds-row"><span>Hours worked <i></i></span><span>Crew <i></i></span><span>&#9744; Finished &nbsp; &#9744; Come back</span></div>' +
+        '<div class="ds-notes"><u>What was done, details, anything to charge extra for</u>' + lines(2) + "</div></div>";
+    });
+    var pages = [], i; for (i = 0; i < blocks.length; i += 3) pages.push(blocks.slice(i, i + 3));
+    layer.hidden = false;
+    layer.innerHTML = '<div class="inv-bar no-print"><span class="inv-msg">' + (blank ? "No jobs are scheduled that day, so this is a blank sheet." : plural(jobs.length, "job", "jobs") + " scheduled that day.") + '</span><label class="inv-date">Day <input type="date" id="dsDate" value="' + esc(date) + '"></label>' +
+      '<button type="button" class="btn" data-act="closeInvoice">Close</button><button type="button" class="btn primary" data-act="printInvoice">Print</button></div>' +
+      pages.map(function (p, n) {
+        return '<div class="inv-sheet ds"><div class="ds-title"><div><b>' + esc(sv("businessName")) + "</b><span>DAY SHEET</span></div><div class=\"ds-r\"><b>" + esc(fmtDateLong(date)) + "</b>" + (pages.length > 1 ? "<span>Page " + (n + 1) + " of " + pages.length + "</span>" : "") + "</div></div>" + p.join("") +
+          '<p class="ds-foot">Hand this to the office at the end of the day.</p></div>';
+      }).join("");
+  }
+
   function renderInvoice() {
     var layer = $("#invoiceLayer"), s = ui.invoice, inv = null, draft = false;
     if (s && s.list) { renderPriceList(); return; }
+    if (s && s.day) { renderDaySheet(); return; }
     if (s && s.invId) inv = invById(s.invId);
     else if (s && s.jobId) { var jj = jobById(s.jobId); if (jj) { inv = draftFor(jj, s.kind, s.style); draft = true; } }
     if (!inv) { ui.invoice = null; layer.hidden = true; layer.innerHTML = ""; return; }
     var est = isEst(inv), kindWord = est ? "estimate" : "invoice";
     var b = inv.billTo || {}, bal = r2(inv.total - (inv.paid || 0));
     var addr = addrLines(b.address).map(function (l) { return "<span>" + esc(l) + "</span>"; }).join("");
-    var rows = inv.lines.map(function (l) {
+    var lrow = function (l) {
       return "<tr>" + (est ? "" : '<td class="d">' + esc(l.date ? fmtDateLong(l.date) : "") + "</td>") + '<td class="q">' + esc(qtyFmt(l.qty) + (UNIT_SHORT[l.unit] || "")) + "</td><td>" + esc(l.name) + (l.detail ? '<span class="inv-detail">' + esc(l.detail) + "</span>" : "") + '</td><td class="r">' + esc(l.combined ? "" : money(l.rate)) + '</td><td class="r">' + esc(money(l.amount)) + "</td></tr>";
-    }).join("");
+    };
+    var ncol = est ? 4 : 5;
+    var section = function (title, arr) {
+      if (!arr.length) return "";
+      return '<tr class="grp"><td colspan="' + ncol + '">' + title + "</td></tr>" + arr.map(lrow).join("") + '<tr class="sub"><td colspan="' + (ncol - 1) + '" class="r">' + title + ' subtotal</td><td class="r">' + esc(money(r2(arr.reduce(function (a, l) { return a + l.amount; }, 0)))) + "</td></tr>";
+    };
+    var rows = inv.style === "grouped" ? section("Materials", inv.lines.filter(function (l) { return l.kind === "material"; })) + section("Labor", inv.lines.filter(function (l) { return l.kind !== "material"; })) : inv.lines.map(lrow).join("");
     var site = inv.site ? '<tr class="site">' + (est ? "<td></td>" : "<td></td><td></td>") + '<td colspan="3">Service location: ' + esc(inv.site) + "</td></tr>" : "";
     var noteText = est ? String(sv("estimateNote")).trim() : String(st("invoiceNote") || "").trim();
     var jobId = inv.jobId, jobOk = !!(jobId && jobById(jobId));
     var seg = jobOk ? '<span class="seg"><button type="button" data-act="setKind" data-kind="invoice" aria-pressed="' + (!est) + '">Invoice</button><button type="button" data-act="setKind" data-kind="estimate" aria-pressed="' + est + '">Estimate</button></span>' : "";
-    var hasMat = jobOk && (jobById(jobId).items || []).some(function (i) { return i.kind === "material" || i.kind === "hourly"; });
+    var hasMat = jobOk && (jobById(jobId).items || []).length > 1;
     var stl = s.style || (jobOk && jobById(jobId).billStyle) || "separate";
-    if (draft && hasMat) seg += '<span class="seg"><button type="button" data-act="setStyle" data-style="separate" aria-pressed="' + (stl !== "combined") + '">Separate</button><button type="button" data-act="setStyle" data-style="combined" aria-pressed="' + (stl === "combined") + '">Combined</button></span>';
+    if (draft && hasMat) seg += '<span class="seg"><button type="button" data-act="setStyle" data-style="separate" aria-pressed="' + (stl !== "combined") + '">Separate</button><button type="button" data-act="setStyle" data-style="combined" aria-pressed="' + (stl === "combined") + '">Combined</button><button type="button" data-act="setStyle" data-style="grouped" aria-pressed="' + (stl === "grouped") + '">Parts and labor</button></span>';
     var msg = s.msg ? s.msg : (draft ? (inv.date && (est || inv.date) ? "Preview. Issuing gives it " + kindWord + " No. " + dispNo({ no: nextNo(kindOf(inv)), kind: inv.kind }) + " and saves a copy." : "Mark the job done first so the invoice can be dated.") : "");
     var canIssue = !!inv.date;
     var bar = '<div class="inv-bar no-print"><span class="inv-msg">' + esc(msg) + '</span>' + seg +
@@ -1166,11 +1196,12 @@
       case "invoice": if (j) openInvoice(id); break;
       case "checkUpdate": updStatus("Checking..."); checkUpdate(true, false); break;
       case "installUpdate": t.disabled = true; installUpdateNow().then(function (ok) { if (!ok) t.disabled = false; }); break;
+      case "daySheet": ui.invoice = { day: true, date: today() }; renderInvoice(); break;
       case "printList": ui.invoice = { list: true, codes: true }; renderInvoice(); break;
       case "toggleCodes": if (ui.invoice) { ui.invoice.codes = ui.invoice.codes === false; renderInvoice(); } break;
       case "issueInvoice": issueInvoice(); break;
       case "setKind": { var sj = ui.invoice && (ui.invoice.jobId || (ui.invoice.invId && invById(ui.invoice.invId) && invById(ui.invoice.invId).jobId)); if (sj) openFor(sj, t.dataset.kind === "estimate" ? "estimate" : "invoice"); break; }
-      case "setStyle": if (ui.invoice && ui.invoice.jobId) { ui.invoice.style = t.dataset.style === "combined" ? "combined" : "separate"; renderInvoice(); } break;
+      case "setStyle": if (ui.invoice && ui.invoice.jobId) { ui.invoice.style = t.dataset.style === "combined" || t.dataset.style === "grouped" ? t.dataset.style : "separate"; renderInvoice(); } break;
       case "toggleAccepted": toggleAccepted(); break;
       case "voidInv": voidInvoice(); break;
       case "printInvoice": window.ledger.printInvoice().catch(function () {}); break;
@@ -1219,6 +1250,7 @@
     if (t.id === "jobSearch") { ui.jq = t.value; ui.jobLimit = PAGE; fillJobList(); }
     else if (t.id === "invSearch") { ui.iq = t.value; ui.invLimit = PAGE; fillInvList(); }
     else if (t.id === "invKind") { ui.ik = t.value; ui.invLimit = PAGE; fillInvList(); }
+    else if (t.id === "dsDate") { if (ui.invoice && ui.invoice.day && t.value) { ui.invoice.date = t.value; renderDaySheet(); } }
     else if (t.id === "matSearch") { ui.mq = t.value; fillMaterialList(); }
     else if (t.id === "clientSearch") { ui.cq = t.value; ui.clientLimit = PAGE; fillClientList(); }
     else if (t.id === "jf-client") refreshClientHint();
